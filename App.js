@@ -8,18 +8,18 @@ import { createStackNavigator } from '@react-navigation/stack';
 
 const Stack = createStackNavigator();
 
-// Initial Students Database
+// Available Classes List for Dropdown
+const CLASS_OPTIONS = ['Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12 IP', 'Class 12 CS'];
+
+// Initial Databases
 const INITIAL_STUDENTS = [
   { regNo: '1001', pass: 'aims123', name: 'Rahul Sharma', class: 'Class 8', feesStatus: 'Pending', feesAmount: '1500' },
   { regNo: '1002', pass: 'aims456', name: 'Priya Verma', class: 'Class 12 IP', feesStatus: 'Received', feesAmount: '0' }
 ];
 
-// Initial Course Materials Database
 const INITIAL_COURSE_CONTENT = [
-  { id: '1', targetClass: 'Class 8', subject: 'Maths', chapter: 'Ch 1: Fractions & Decimals', pdf: 'Class8_Fractions.pdf' },
-  { id: '2', targetClass: 'Class 8', subject: 'English 2', chapter: 'Ch 1: Nouns & Pronouns', pdf: 'Class8_English.pdf' },
-  { id: '3', targetClass: 'Class 12 IP', subject: 'IP (Python)', chapter: 'Ch 1: Pandas DataFrames', pdf: 'Class12_IP_Pandas.pdf' },
-  { id: '4', targetClass: 'Class 12 IP', subject: 'IP (SQL)', chapter: 'Ch 2: SQL Queries', pdf: 'Class12_IP_SQL.pdf' },
+  { id: '1', targetClass: 'Class 8', subject: 'Maths', chapter: 'Ch 1: Fractions', pdf: 'Class8_Fractions.pdf', pdfUrl: null },
+  { id: '2', targetClass: 'Class 12 IP', subject: 'IP (Python)', chapter: 'Ch 1: Pandas', pdf: 'Class12_IP_Pandas.pdf', pdfUrl: null },
 ];
 
 // --- LOGIN SCREEN ---
@@ -64,19 +64,30 @@ function AdminPanelScreen({ route }) {
   const [name, setName] = useState('');
   const [regNo, setRegNo] = useState('');
   const [pass, setPass] = useState('');
-  const [cls, setCls] = useState('Class 8');
+  const [selectedRegClass, setSelectedRegClass] = useState('Class 8');
   const [amount, setAmount] = useState('');
 
   // Upload Content Form State
-  const [targetClass, setTargetClass] = useState('Class 8');
+  const [selectedUploadClass, setSelectedUploadClass] = useState('Class 8');
   const [subject, setSubject] = useState('');
   const [chapter, setChapter] = useState('');
-  const [pdfName, setPdfName] = useState('');
+  const [pdfFileName, setPdfFileName] = useState('');
+  const [pdfFileUrl, setPdfFileUrl] = useState(null);
+
+  // File Picker (From Device Gallery/Storage)
+  const handlePickFile = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setPdfFileName(file.name);
+      setPdfFileUrl(URL.createObjectURL(file));
+      Alert.alert('File Selected', `${file.name} ready to upload!`);
+    }
+  };
 
   // 1. Register Student Class-Wise
   const handleAddStudent = () => {
-    if (!name || !regNo || !pass || !cls) {
-      Alert.alert('Error', 'Please fill Name, Reg No, Password & Class!');
+    if (!name || !regNo || !pass) {
+      Alert.alert('Error', 'Please fill Name, Reg No, and Password!');
       return;
     }
     const exists = students.some(s => s.regNo === regNo.trim());
@@ -89,72 +100,74 @@ function AdminPanelScreen({ route }) {
       regNo: regNo.trim(), 
       pass: pass.trim(), 
       name: name.trim(), 
-      class: cls.trim(), 
+      class: selectedRegClass, 
       feesStatus: 'Pending', 
       feesAmount: amount || '0' 
     };
 
     setStudents([...students, newStudent]);
-    Alert.alert('Success', `${name} registered for ${cls}!`);
+    Alert.alert('Success', `${name} registered for ${selectedRegClass}!`);
     setName(''); setRegNo(''); setPass(''); setAmount('');
   };
 
-  // 2. Delete Student Function
+  // 2. Delete Student
   const handleDeleteStudent = (regNoToDelete, studentName) => {
-    Alert.alert(
-      'Confirm Delete',
-      `Are you sure you want to delete ${studentName} (${regNoToDelete})?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: () => {
-            const updatedList = students.filter(s => s.regNo !== regNoToDelete);
-            setStudents(updatedList);
-            Alert.alert('Deleted', `${studentName} removed successfully.`);
-          }
-        }
-      ]
-    );
+    const updatedList = students.filter(s => s.regNo !== regNoToDelete);
+    setStudents(updatedList);
+    Alert.alert('Deleted', `${studentName} removed successfully.`);
   };
 
-  // 3. Upload Material Class-Wise
+  // 3. Upload Material
   const handleUploadContent = () => {
-    if (!subject || !chapter || !pdfName) {
-      Alert.alert('Error', 'Please fill Chapter, Subject, and PDF details!');
+    if (!subject || !chapter || !pdfFileName) {
+      Alert.alert('Error', 'Please select a PDF file and fill all fields!');
       return;
     }
     const newContent = {
       id: Date.now().toString(),
-      targetClass: targetClass.trim(),
+      targetClass: selectedUploadClass,
       subject: subject,
       chapter: chapter,
-      pdf: pdfName,
+      pdf: pdfFileName,
+      pdfUrl: pdfFileUrl
     };
     setCourseContent([newContent, ...courseContent]);
-    Alert.alert('Success', `Material uploaded for ${targetClass}!`);
-    setSubject(''); setChapter(''); setPdfName('');
+    Alert.alert('Success', `Material uploaded for ${selectedUploadClass}!`);
+    setSubject(''); setChapter(''); setPdfFileName(''); setPdfFileUrl(null);
   };
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.headerTitle}>Admin Control Center</Text>
 
-      {/* Class-wise Student Registration */}
+      {/* 1. Register Student with Dropdown */}
       <View style={styles.card}>
         <Text style={styles.cardHeader}>1. Register New Student (Class-Wise)</Text>
         <TextInput style={styles.input} placeholder="Student Full Name" value={name} onChangeText={setName} />
         <TextInput style={styles.input} placeholder="Registration Number (e.g. 1003)" value={regNo} onChangeText={setRegNo} />
         <TextInput style={styles.input} placeholder="Assign Password" value={pass} onChangeText={setPass} />
-        <TextInput style={styles.input} placeholder="Assign Class (e.g. Class 8 / Class 12 IP)" value={cls} onChangeText={setCls} />
+        
+        {/* Class Selection Dropdown */}
+        <Text style={styles.label}>Select Class:</Text>
+        <View style={styles.dropdownContainer}>
+          {CLASS_OPTIONS.map((cls) => (
+            <TouchableOpacity 
+              key={cls} 
+              style={[styles.chip, selectedRegClass === cls && styles.chipSelected]} 
+              onPress={() => setSelectedRegClass(cls)}
+            >
+              <Text style={[styles.chipText, selectedRegClass === cls && styles.chipTextSelected]}>{cls}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <TextInput style={styles.input} placeholder="Fees Amount (₹)" value={amount} onChangeText={setAmount} keyboardType="numeric" />
         <TouchableOpacity style={styles.btnPrimary} onPress={handleAddStudent}>
           <Text style={styles.btnText}>REGISTER STUDENT</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Student List & Delete Management */}
+      {/* 2. Registered Students List */}
       <View style={styles.card}>
         <Text style={styles.cardHeader}>2. Registered Students ({students.length})</Text>
         {students.map((item) => (
@@ -173,13 +186,36 @@ function AdminPanelScreen({ route }) {
         ))}
       </View>
 
-      {/* Upload Class Material */}
+      {/* 3. Upload Material with Gallery/File Picker */}
       <View style={styles.card}>
         <Text style={styles.cardHeader}>3. Upload PDF/Notes Class-Wise</Text>
-        <TextInput style={styles.input} placeholder="Target Class (e.g. Class 8 / Class 12 IP)" value={targetClass} onChangeText={setTargetClass} />
+        
+        <Text style={styles.label}>Select Target Class:</Text>
+        <View style={styles.dropdownContainer}>
+          {CLASS_OPTIONS.map((cls) => (
+            <TouchableOpacity 
+              key={cls} 
+              style={[styles.chip, selectedUploadClass === cls && styles.chipSelected]} 
+              onPress={() => setSelectedUploadClass(cls)}
+            >
+              <Text style={[styles.chipText, selectedUploadClass === cls && styles.chipTextSelected]}>{cls}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <TextInput style={styles.input} placeholder="Subject (e.g. Maths / IP)" value={subject} onChangeText={setSubject} />
         <TextInput style={styles.input} placeholder="Chapter Name" value={chapter} onChangeText={setChapter} />
-        <TextInput style={styles.input} placeholder="PDF File Name" value={pdfName} onChangeText={setPdfName} />
+
+        {/* Gallery / File Picker Input */}
+        <Text style={styles.label}>Choose PDF / Document File:</Text>
+        <input 
+          type="file" 
+          accept="application/pdf,image/*" 
+          onChange={handlePickFile} 
+          style={{ marginBottom: 15, padding: 8, backgroundColor: '#f0f0f0', borderRadius: 6, width: '100%' }} 
+        />
+        {pdfFileName ? <Text style={styles.fileSelectedText}>Selected: {pdfFileName}</Text> : null}
+
         <TouchableOpacity style={styles.btnPrimary} onPress={handleUploadContent}>
           <Text style={styles.btnText}>UPLOAD MATERIAL</Text>
         </TouchableOpacity>
@@ -192,7 +228,6 @@ function AdminPanelScreen({ route }) {
 function DashboardScreen({ route, navigation }) {
   const { student, courseContent } = route.params;
 
-  // Filter content matching student's class
   const studentContent = courseContent.filter(item => 
     item.targetClass.trim().toLowerCase() === student.class.trim().toLowerCase()
   );
@@ -207,11 +242,11 @@ function DashboardScreen({ route, navigation }) {
           <Text style={styles.cardText}>Fees Status: <Text style={{color: student.feesStatus === 'Received' ? 'green' : 'red', fontWeight: 'bold'}}>{student.feesStatus} (₹{student.feesAmount})</Text></Text>
         </View>
 
-        <Text style={styles.sectionHeader}>{student.class} Study Material & Quizzes</Text>
+        <Text style={styles.sectionHeader}>{student.class} Study Material</Text>
         
         {studentContent.length === 0 ? (
           <View style={styles.card}>
-            <Text style={{textAlign: 'center', color: '#777'}}>Aapki class ke liye abhi koi material uploaded nahi hai.</Text>
+            <Text style={{textAlign: 'center', color: '#777'}}>Is class ke liye koi material uploaded nahi hai.</Text>
           </View>
         ) : (
           studentContent.map((item) => (
@@ -238,7 +273,14 @@ function DashboardScreen({ route, navigation }) {
 // --- QUIZ & MATERIAL SCREEN ---
 function QuizScreen({ route, navigation }) {
   const { chapter } = route.params;
-  const [selected, setSelected] = useState(null);
+
+  const handleDownload = () => {
+    if (chapter.pdfUrl) {
+      window.open(chapter.pdfUrl, '_blank');
+    } else {
+      Alert.alert('Demo File', `Opening sample file: ${chapter.pdf}`);
+    }
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -247,26 +289,13 @@ function QuizScreen({ route, navigation }) {
 
       <View style={styles.card}>
         <Text style={styles.cardHeader}>Download Class Notes / Docs:</Text>
-        <TouchableOpacity style={styles.pdfBtn} onPress={() => Alert.alert('Opening File', chapter.pdf)}>
-          <Text style={styles.pdfBtnText}>📥 Download {chapter.pdf}</Text>
+        <TouchableOpacity style={styles.pdfBtn} onPress={handleDownload}>
+          <Text style={styles.pdfBtnText}>📥 View / Download File ({chapter.pdf})</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardHeader}>Q1. Topic Practice Question</Text>
-        {['Option A', 'Option B', 'Option C'].map((opt, i) => (
-          <TouchableOpacity 
-            key={i} 
-            style={[styles.optBtn, selected === i && styles.optSelected]} 
-            onPress={() => setSelected(i)}
-          >
-            <Text>{opt}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <TouchableOpacity style={styles.btnPrimary} onPress={() => { Alert.alert('Submitted', 'Test Completed!'); navigation.goBack(); }}>
-        <Text style={styles.btnText}>SUBMIT TEST</Text>
+      <TouchableOpacity style={styles.btnPrimary} onPress={() => navigation.goBack()}>
+        <Text style={styles.btnText}>BACK TO DASHBOARD</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -283,7 +312,7 @@ export default function App() {
         <Stack.Screen name="Login" component={LoginScreen} initialParams={{ students }} options={{ headerShown: false }} />
         <Stack.Screen name="AdminPanel" component={AdminPanelScreen} initialParams={{ students, setStudents, courseContent, setCourseContent }} options={{ title: 'Admin Control Center' }} />
         <Stack.Screen name="Dashboard" component={DashboardScreen} initialParams={{ courseContent }} options={{ title: 'AIMS Student Portal' }} />
-        <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: 'Study & Test Portal' }} />
+        <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: 'Study Portal' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -295,6 +324,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a237e', textAlign: 'center', marginTop: 10 },
   subTitle: { fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 15 },
   input: { backgroundColor: '#fff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 10 },
+  label: { fontSize: 12, fontWeight: 'bold', color: '#333', marginBottom: 6 },
   btnPrimary: { backgroundColor: '#1a237e', padding: 12, borderRadius: 8, alignItems: 'center', marginVertical: 10 },
   btnText: { color: '#fff', fontWeight: 'bold' },
   card: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 12, elevation: 2 },
@@ -310,12 +340,17 @@ const styles = StyleSheet.create({
   btnSmallText: { color: '#fff', fontSize: 11, fontWeight: 'bold' },
   pdfBtn: { backgroundColor: '#e8eaf6', padding: 10, borderRadius: 6, marginTop: 8, alignItems: 'center' },
   pdfBtnText: { color: '#1a237e', fontWeight: 'bold', fontSize: 12 },
-  optBtn: { padding: 10, backgroundColor: '#f0f0f0', borderRadius: 6, marginTop: 8 },
-  optSelected: { backgroundColor: '#c5cae9', borderWidth: 1, borderColor: '#1a237e' },
   
   studentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
   studentName: { fontSize: 13, fontWeight: 'bold', color: '#333' },
   studentSub: { fontSize: 11, color: '#666' },
   btnDelete: { backgroundColor: '#d32f2f', paddingVertical: 5, paddingHorizontal: 10, borderRadius: 5 },
-  btnDeleteText: { color: '#fff', fontSize: 10, fontWeight: 'bold' }
+  btnDeleteText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+
+  dropdownContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
+  chip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#e0e0e0', marginRight: 6, marginBottom: 6 },
+  chipSelected: { backgroundColor: '#1a237e' },
+  chipText: { fontSize: 11, color: '#333' },
+  chipTextSelected: { color: '#fff', fontWeight: 'bold' },
+  fileSelectedText: { fontSize: 11, color: 'green', fontWeight: 'bold', marginBottom: 8 }
 });
