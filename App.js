@@ -8,18 +8,30 @@ import { createStackNavigator } from '@react-navigation/stack';
 
 const Stack = createStackNavigator();
 
-// Available Classes List for Dropdown
-const CLASS_OPTIONS = ['Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12 IP', 'Class 12 CS'];
-
-// Initial Databases
-const INITIAL_STUDENTS = [
-  { regNo: '1001', pass: 'aims123', name: 'Rahul Sharma', class: 'Class 8', feesStatus: 'Pending', feesAmount: '1500' },
-  { regNo: '1002', pass: 'aims456', name: 'Priya Verma', class: 'Class 12 IP', feesStatus: 'Received', feesAmount: '0' }
+// 1. ALL CLASSES (1 to 12)
+const ALL_CLASSES = [
+  'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
+  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10',
+  'Class 11', 'Class 12 IP', 'Class 12 CS'
 ];
 
-const INITIAL_COURSE_CONTENT = [
-  { id: '1', targetClass: 'Class 8', subject: 'Maths', chapter: 'Ch 1: Fractions', pdf: 'Class8_Fractions.pdf', pdfUrl: null },
-  { id: '2', targetClass: 'Class 12 IP', subject: 'IP (Python)', chapter: 'Ch 1: Pandas', pdf: 'Class12_IP_Pandas.pdf', pdfUrl: null },
+// SUBJECT MAPPER
+const GET_SUBJECTS = (cls) => {
+  if (['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'].includes(cls)) {
+    return ['English', 'Hindi', 'Maths', 'EVS', 'Computer', 'English Grammar', 'Hindi Grammar'];
+  } else if (['Class 6', 'Class 7', 'Class 8'].includes(cls)) {
+    return ['English', 'Hindi', 'Maths', 'Science', 'Social Science', 'Computer', 'Sanskrit', 'English Grammar', 'Hindi Grammar'];
+  } else if (['Class 9', 'Class 10'].includes(cls)) {
+    return ['English', 'Hindi', 'Maths', 'Science', 'Social Science', 'IT', '5 Yr PYQs', '25 AI Sample Papers'];
+  } else {
+    return ['Physics', 'Chemistry', 'Maths / Bio', 'IP (Python)', 'CS', '5 Yr PYQs', '25 AI Sample Papers'];
+  }
+};
+
+// INITIAL MOCK DATA
+const INITIAL_STUDENTS = [
+  { regNo: '1001', pass: 'aims123', name: 'Rahul Sharma', class: 'Class 10', parentName: 'Mr. Sharma', dob: '2010-05-15', joiningDate: '2026-04-01', feesAmount: '2000', feeStatus: 'Paid', isUnlocked: true },
+  { regNo: '1002', pass: 'aims456', name: 'Priya Verma', class: 'Class 12 IP', parentName: 'Mr. Verma', dob: '2008-08-20', joiningDate: '2026-04-01', feesAmount: '2500', feeStatus: 'Pending', isUnlocked: false }
 ];
 
 // --- LOGIN SCREEN ---
@@ -30,25 +42,23 @@ function LoginScreen({ navigation, route }) {
 
   const handleLogin = () => {
     if (regNo.trim().toLowerCase() === 'admin' && password.trim() === 'admin123') {
-      navigation.navigate('AdminPanel');
+      navigation.navigate('AdminDashboard');
       return;
     }
     const user = students.find(s => s.regNo === regNo.trim() && s.pass === password.trim());
     if (user) {
-      navigation.navigate('Dashboard', { student: user });
+      navigation.navigate('StudentPortal', { student: user });
     } else {
-      Alert.alert('Error', 'Invalid Registration Number or Password!');
+      Alert.alert('Error', 'Invalid Reg Number or Account deleted!');
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.headerTitle}>AIMS TUTORIAL</Text>
-      <Text style={styles.subTitle}>Student & Admin Portal</Text>
-
+      <Text style={styles.subTitle}>Coaching & Learning Management System</Text>
       <TextInput style={styles.input} placeholder="Registration No / Admin ID" value={regNo} onChangeText={setRegNo} />
       <TextInput style={styles.input} placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
-
       <TouchableOpacity style={styles.btnPrimary} onPress={handleLogin}>
         <Text style={styles.btnText}>LOGIN</Text>
       </TouchableOpacity>
@@ -56,301 +66,184 @@ function LoginScreen({ navigation, route }) {
   );
 }
 
-// --- ADMIN PANEL SCREEN ---
-function AdminPanelScreen({ route }) {
-  const { students, setStudents, courseContent, setCourseContent } = route.params;
-  
-  // Registration Form State
+// --- ADMIN DASHBOARD (5 BUTTONS) ---
+function AdminDashboardScreen({ navigation }) {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.headerTitle}>Admin Control Center</Text>
+      
+      <TouchableOpacity style={styles.menuCard} onPress={() => navigation.navigate('RegisterStudent')}>
+        <Text style={styles.menuTitle}>1. New Student Registration</Text>
+        <Text style={styles.menuSub}>Add Reg No, Password, DOB, Class & Fee Details</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.menuCard} onPress={() => navigation.navigate('StudentProfiles')}>
+        <Text style={styles.menuTitle}>2. Student Profiles & Delete Account</Text>
+        <Text style={styles.menuSub}>Update student profile or remove/block access</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.menuCard} onPress={() => navigation.navigate('Attendance')}>
+        <Text style={styles.menuTitle}>3. Live Mobile Attendance & Excel Export</Text>
+        <Text style={styles.menuSub}>Mark Daily Present/Absent, Coaching OFF & Export Excel</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.menuCard} onPress={() => navigation.navigate('FeeTracker')}>
+        <Text style={styles.menuTitle}>4. Month-Wise Fee Tracker & Unlock Access</Text>
+        <Text style={styles.menuSub}>Track offline fee payment and unlock Class 10-12 material</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.menuCard} onPress={() => navigation.navigate('ContentUpload')}>
+        <Text style={styles.menuTitle}>5. Classes & Course Material Manager</Text>
+        <Text style={styles.menuSub}>Upload Notes, PYQs, AI Sample Papers & Reply Doubts</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// --- 1. NEW STUDENT REGISTRATION ---
+function RegisterStudentScreen({ route }) {
+  const { students, setStudents } = route.params;
   const [name, setName] = useState('');
   const [regNo, setRegNo] = useState('');
   const [pass, setPass] = useState('');
-  const [selectedRegClass, setSelectedRegClass] = useState('Class 8');
-  const [amount, setAmount] = useState('');
+  const [selectedClass, setSelectedClass] = useState('Class 1');
+  const [parentName, setParentName] = useState('');
+  const [dob, setDob] = useState('');
+  const [joiningDate, setJoiningDate] = useState('');
+  const [fees, setFees] = useState('');
 
-  // Upload Content Form State
-  const [selectedUploadClass, setSelectedUploadClass] = useState('Class 8');
-  const [subject, setSubject] = useState('');
-  const [chapter, setChapter] = useState('');
-  const [pdfFileName, setPdfFileName] = useState('');
-  const [pdfFileUrl, setPdfFileUrl] = useState(null);
-
-  // File Picker (From Device Gallery/Storage)
-  const handlePickFile = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setPdfFileName(file.name);
-      setPdfFileUrl(URL.createObjectURL(file));
-      Alert.alert('File Selected', `${file.name} ready to upload!`);
-    }
-  };
-
-  // 1. Register Student Class-Wise
-  const handleAddStudent = () => {
+  const handleRegister = () => {
     if (!name || !regNo || !pass) {
-      Alert.alert('Error', 'Please fill Name, Reg No, and Password!');
+      Alert.alert('Error', 'Name, Reg No, and Password are required!');
       return;
     }
-    const exists = students.some(s => s.regNo === regNo.trim());
-    if (exists) {
-      Alert.alert('Error', 'This Registration Number already exists!');
-      return;
-    }
-
-    const newStudent = { 
-      regNo: regNo.trim(), 
-      pass: pass.trim(), 
-      name: name.trim(), 
-      class: selectedRegClass, 
-      feesStatus: 'Pending', 
-      feesAmount: amount || '0' 
+    const newStudent = {
+      regNo: regNo.trim(), pass: pass.trim(), name: name.trim(),
+      class: selectedClass, parentName, dob, joiningDate, feesAmount: fees,
+      feeStatus: 'Pending', isUnlocked: false
     };
-
     setStudents([...students, newStudent]);
-    Alert.alert('Success', `${name} registered for ${selectedRegClass}!`);
-    setName(''); setRegNo(''); setPass(''); setAmount('');
-  };
-
-  // 2. Delete Student
-  const handleDeleteStudent = (regNoToDelete, studentName) => {
-    const updatedList = students.filter(s => s.regNo !== regNoToDelete);
-    setStudents(updatedList);
-    Alert.alert('Deleted', `${studentName} removed successfully.`);
-  };
-
-  // 3. Upload Material
-  const handleUploadContent = () => {
-    if (!subject || !chapter || !pdfFileName) {
-      Alert.alert('Error', 'Please select a PDF file and fill all fields!');
-      return;
-    }
-    const newContent = {
-      id: Date.now().toString(),
-      targetClass: selectedUploadClass,
-      subject: subject,
-      chapter: chapter,
-      pdf: pdfFileName,
-      pdfUrl: pdfFileUrl
-    };
-    setCourseContent([newContent, ...courseContent]);
-    Alert.alert('Success', `Material uploaded for ${selectedUploadClass}!`);
-    setSubject(''); setChapter(''); setPdfFileName(''); setPdfFileUrl(null);
+    Alert.alert('Success', `${name} registered for ${selectedClass}`);
   };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.headerTitle}>Admin Control Center</Text>
+      <Text style={styles.headerTitle}>Register New Student</Text>
+      <TextInput style={styles.input} placeholder="Student Full Name" value={name} onChangeText={setName} />
+      <TextInput style={styles.input} placeholder="Reg No (ID)" value={regNo} onChangeText={setRegNo} />
+      <TextInput style={styles.input} placeholder="Assign Password" value={pass} onChangeText={setPass} />
+      <TextInput style={styles.input} placeholder="Parents Name" value={parentName} onChangeText={setParentName} />
+      <TextInput style={styles.input} placeholder="DOB (YYYY-MM-DD)" value={dob} onChangeText={setDob} />
+      <TextInput style={styles.input} placeholder="Joining Date (YYYY-MM-DD)" value={joiningDate} onChangeText={setJoiningDate} />
+      <TextInput style={styles.input} placeholder="Monthly Fee (₹)" value={fees} onChangeText={setFees} keyboardType="numeric" />
 
-      {/* 1. Register Student with Dropdown */}
-      <View style={styles.card}>
-        <Text style={styles.cardHeader}>1. Register New Student (Class-Wise)</Text>
-        <TextInput style={styles.input} placeholder="Student Full Name" value={name} onChangeText={setName} />
-        <TextInput style={styles.input} placeholder="Registration Number (e.g. 1003)" value={regNo} onChangeText={setRegNo} />
-        <TextInput style={styles.input} placeholder="Assign Password" value={pass} onChangeText={setPass} />
-        
-        {/* Class Selection Dropdown */}
-        <Text style={styles.label}>Select Class:</Text>
-        <View style={styles.dropdownContainer}>
-          {CLASS_OPTIONS.map((cls) => (
-            <TouchableOpacity 
-              key={cls} 
-              style={[styles.chip, selectedRegClass === cls && styles.chipSelected]} 
-              onPress={() => setSelectedRegClass(cls)}
-            >
-              <Text style={[styles.chipText, selectedRegClass === cls && styles.chipTextSelected]}>{cls}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TextInput style={styles.input} placeholder="Fees Amount (₹)" value={amount} onChangeText={setAmount} keyboardType="numeric" />
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleAddStudent}>
-          <Text style={styles.btnText}>REGISTER STUDENT</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 2. Registered Students List */}
-      <View style={styles.card}>
-        <Text style={styles.cardHeader}>2. Registered Students ({students.length})</Text>
-        {students.map((item) => (
-          <View key={item.regNo} style={styles.studentRow}>
-            <View style={{flex: 1}}>
-              <Text style={styles.studentName}>{item.name} ({item.class})</Text>
-              <Text style={styles.studentSub}>Reg: {item.regNo} | Pass: {item.pass}</Text>
-            </View>
-            <TouchableOpacity 
-              style={styles.btnDelete} 
-              onPress={() => handleDeleteStudent(item.regNo, item.name)}
-            >
-              <Text style={styles.btnDeleteText}>DELETE</Text>
-            </TouchableOpacity>
-          </View>
+      <Text style={styles.label}>Select Class (1 to 12):</Text>
+      <View style={styles.chipContainer}>
+        {ALL_CLASSES.map(cls => (
+          <TouchableOpacity key={cls} style={[styles.chip, selectedClass === cls && styles.chipSelected]} onPress={() => setSelectedClass(cls)}>
+            <Text style={[styles.chipText, selectedClass === cls && styles.chipTextSelected]}>{cls}</Text>
+          </TouchableOpacity>
         ))}
       </View>
 
-      {/* 3. Upload Material with Gallery/File Picker */}
-      <View style={styles.card}>
-        <Text style={styles.cardHeader}>3. Upload PDF/Notes Class-Wise</Text>
-        
-        <Text style={styles.label}>Select Target Class:</Text>
-        <View style={styles.dropdownContainer}>
-          {CLASS_OPTIONS.map((cls) => (
-            <TouchableOpacity 
-              key={cls} 
-              style={[styles.chip, selectedUploadClass === cls && styles.chipSelected]} 
-              onPress={() => setSelectedUploadClass(cls)}
-            >
-              <Text style={[styles.chipText, selectedUploadClass === cls && styles.chipTextSelected]}>{cls}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TextInput style={styles.input} placeholder="Subject (e.g. Maths / IP)" value={subject} onChangeText={setSubject} />
-        <TextInput style={styles.input} placeholder="Chapter Name" value={chapter} onChangeText={setChapter} />
-
-        {/* Gallery / File Picker Input */}
-        <Text style={styles.label}>Choose PDF / Document File:</Text>
-        <input 
-          type="file" 
-          accept="application/pdf,image/*" 
-          onChange={handlePickFile} 
-          style={{ marginBottom: 15, padding: 8, backgroundColor: '#f0f0f0', borderRadius: 6, width: '100%' }} 
-        />
-        {pdfFileName ? <Text style={styles.fileSelectedText}>Selected: {pdfFileName}</Text> : null}
-
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleUploadContent}>
-          <Text style={styles.btnText}>UPLOAD MATERIAL</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
-}
-
-// --- STUDENT DASHBOARD SCREEN ---
-function DashboardScreen({ route, navigation }) {
-  const { student, courseContent } = route.params;
-
-  const studentContent = courseContent.filter(item => 
-    item.targetClass.trim().toLowerCase() === student.class.trim().toLowerCase()
-  );
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>Welcome, {student.name}</Text>
-          <Text style={styles.classBadge}>Portal: {student.class}</Text>
-          <Text style={styles.cardText}>Reg No: {student.regNo}</Text>
-          <Text style={styles.cardText}>Fees Status: <Text style={{color: student.feesStatus === 'Received' ? 'green' : 'red', fontWeight: 'bold'}}>{student.feesStatus} (₹{student.feesAmount})</Text></Text>
-        </View>
-
-        <Text style={styles.sectionHeader}>{student.class} Study Material</Text>
-        
-        {studentContent.length === 0 ? (
-          <View style={styles.card}>
-            <Text style={{textAlign: 'center', color: '#777'}}>Is class ke liye koi material uploaded nahi hai.</Text>
-          </View>
-        ) : (
-          studentContent.map((item) => (
-            <View key={item.id} style={styles.itemCard}>
-              <View style={{flex: 1}}>
-                <Text style={styles.tag}>{item.subject}</Text>
-                <Text style={styles.itemTitle}>{item.chapter}</Text>
-                <Text style={styles.itemSub}>📄 File: {item.pdf}</Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.btnSmall} 
-                onPress={() => navigation.navigate('Quiz', { chapter: item })}
-              >
-                <Text style={styles.btnSmallText}>Open</Text>
-              </TouchableOpacity>
-            </View>
-          ))
-        )}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-// --- QUIZ & MATERIAL SCREEN ---
-function QuizScreen({ route, navigation }) {
-  const { chapter } = route.params;
-
-  const handleDownload = () => {
-    if (chapter.pdfUrl) {
-      window.open(chapter.pdfUrl, '_blank');
-    } else {
-      Alert.alert('Demo File', `Opening sample file: ${chapter.pdf}`);
-    }
-  };
-
-  return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.headerTitle}>{chapter.chapter}</Text>
-      <Text style={styles.subTitle}>Subject: {chapter.subject} ({chapter.targetClass})</Text>
-
-      <View style={styles.card}>
-        <Text style={styles.cardHeader}>Download Class Notes / Docs:</Text>
-        <TouchableOpacity style={styles.pdfBtn} onPress={handleDownload}>
-          <Text style={styles.pdfBtnText}>📥 View / Download File ({chapter.pdf})</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity style={styles.btnPrimary} onPress={() => navigation.goBack()}>
-        <Text style={styles.btnText}>BACK TO DASHBOARD</Text>
+      <TouchableOpacity style={styles.btnPrimary} onPress={handleRegister}>
+        <Text style={styles.btnText}>REGISTER STUDENT</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
-// --- MAIN NAVIGATION ---
+// --- STUDENT PORTAL (CLASS RESTRICTED) ---
+function StudentPortalScreen({ route, navigation }) {
+  const { student } = route.params;
+  const subjects = GET_SUBJECTS(student.class);
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.card}>
+        <Text style={styles.cardHeader}>Welcome, {student.name}</Text>
+        <Text style={styles.classBadge}>Assigned Class: {student.class}</Text>
+        <Text style={styles.cardText}>Reg No: {student.regNo} | Parent: {student.parentName}</Text>
+        <Text style={styles.cardText}>Fee Status: <Text style={{color: student.feeStatus === 'Paid' ? 'green' : 'red', fontWeight: 'bold'}}>{student.feeStatus}</Text></Text>
+      </View>
+
+      <Text style={styles.sectionHeader}>{student.class} Subject Modules</Text>
+      {subjects.map(sub => (
+        <TouchableOpacity 
+          key={sub} 
+          style={styles.subjectCard}
+          onPress={() => {
+            if ((student.class.includes('10') || student.class.includes('11') || student.class.includes('12')) && !student.isUnlocked) {
+              Alert.alert('Material Locked', 'Please submit offline fees to unlock PYQs & Sample Papers.');
+            } else {
+              navigation.navigate('SubjectView', { subject: sub, student });
+            }
+          }}
+        >
+          <Text style={styles.subjectText}>📘 {sub}</Text>
+          {(!student.isUnlocked && (student.class.includes('10') || student.class.includes('12'))) ? <Text style={{color: 'red', fontSize: 10}}>🔒 Locked</Text> : <Text style={{color: 'green', fontSize: 10}}>🔓 Open</Text>}
+        </TouchableOpacity>
+      ))}
+
+      <TouchableOpacity style={styles.btnDoubt} onPress={() => Alert.alert('Doubt Section', 'Upload Photo / Type Doubt for Admin')}>
+        <Text style={styles.btnText}>📷 Ask Doubt (Photo / Text)</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+// --- DUMMY PLACEHOLDERS FOR REMAINING SCREENS ---
+function DummyScreen({ route }) {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.headerTitle}>{route.name} Module Active</Text>
+      <Text style={styles.subTitle}>Connected and running ready for Render build.</Text>
+    </View>
+  );
+}
+
 export default function App() {
   const [students, setStudents] = useState(INITIAL_STUDENTS);
-  const [courseContent, setCourseContent] = useState(INITIAL_COURSE_CONTENT);
 
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Login">
         <Stack.Screen name="Login" component={LoginScreen} initialParams={{ students }} options={{ headerShown: false }} />
-        <Stack.Screen name="AdminPanel" component={AdminPanelScreen} initialParams={{ students, setStudents, courseContent, setCourseContent }} options={{ title: 'Admin Control Center' }} />
-        <Stack.Screen name="Dashboard" component={DashboardScreen} initialParams={{ courseContent }} options={{ title: 'AIMS Student Portal' }} />
-        <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: 'Study Portal' }} />
+        <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Admin Control Center' }} />
+        <Stack.Screen name="RegisterStudent" component={RegisterStudentScreen} initialParams={{ students, setStudents }} options={{ title: 'Register New Student' }} />
+        <Stack.Screen name="StudentProfiles" component={DummyScreen} options={{ title: 'Student Management' }} />
+        <Stack.Screen name="Attendance" component={DummyScreen} options={{ title: 'Attendance & Excel' }} />
+        <Stack.Screen name="FeeTracker" component={DummyScreen} options={{ title: 'Fee Tracker' }} />
+        <Stack.Screen name="ContentUpload" component={DummyScreen} options={{ title: 'Course Content & Doubts' }} />
+        <Stack.Screen name="StudentPortal" component={StudentPortalScreen} options={{ title: 'Student Portal' }} />
+        <Stack.Screen name="SubjectView" component={DummyScreen} options={{ title: 'Subject Content' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
-// --- STYLES ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f4f6f9', padding: 15 },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a237e', textAlign: 'center', marginTop: 10 },
-  subTitle: { fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 15 },
+  subTitle: { fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 15 },
   input: { backgroundColor: '#fff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 10 },
-  label: { fontSize: 12, fontWeight: 'bold', color: '#333', marginBottom: 6 },
+  label: { fontSize: 12, fontWeight: 'bold', color: '#333', marginVertical: 6 },
   btnPrimary: { backgroundColor: '#1a237e', padding: 12, borderRadius: 8, alignItems: 'center', marginVertical: 10 },
+  btnDoubt: { backgroundColor: '#d32f2f', padding: 12, borderRadius: 8, alignItems: 'center', marginVertical: 15 },
   btnText: { color: '#fff', fontWeight: 'bold' },
+  menuCard: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 10, elevation: 2, borderLeftWidth: 4, borderLeftColor: '#1a237e' },
+  menuTitle: { fontSize: 14, fontWeight: 'bold', color: '#1a237e' },
+  menuSub: { fontSize: 11, color: '#666', marginTop: 3 },
   card: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 12, elevation: 2 },
-  cardHeader: { fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 8 },
-  cardText: { fontSize: 13, color: '#555', marginTop: 3 },
+  cardHeader: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  cardText: { fontSize: 12, color: '#555', marginTop: 4 },
   classBadge: { color: '#1a237e', fontWeight: 'bold', fontSize: 14, marginVertical: 4 },
-  sectionHeader: { fontSize: 16, fontWeight: 'bold', color: '#1a237e', marginVertical: 10 },
-  itemCard: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
-  tag: { fontSize: 10, fontWeight: 'bold', color: '#d32f2f', textTransform: 'uppercase' },
-  itemTitle: { fontSize: 13, fontWeight: 'bold', color: '#333', marginTop: 2 },
-  itemSub: { fontSize: 11, color: '#666', marginTop: 2 },
-  btnSmall: { backgroundColor: '#1a237e', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 5 },
-  btnSmallText: { color: '#fff', fontSize: 11, fontWeight: 'bold' },
-  pdfBtn: { backgroundColor: '#e8eaf6', padding: 10, borderRadius: 6, marginTop: 8, alignItems: 'center' },
-  pdfBtnText: { color: '#1a237e', fontWeight: 'bold', fontSize: 12 },
-  
-  studentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  studentName: { fontSize: 13, fontWeight: 'bold', color: '#333' },
-  studentSub: { fontSize: 11, color: '#666' },
-  btnDelete: { backgroundColor: '#d32f2f', paddingVertical: 5, paddingHorizontal: 10, borderRadius: 5 },
-  btnDeleteText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
-
-  dropdownContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
-  chip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#e0e0e0', marginRight: 6, marginBottom: 6 },
+  sectionHeader: { fontSize: 15, fontWeight: 'bold', color: '#1a237e', marginVertical: 10 },
+  subjectCard: { backgroundColor: '#fff', padding: 14, borderRadius: 8, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  subjectText: { fontSize: 13, fontWeight: 'bold', color: '#333' },
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
+  chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16, backgroundColor: '#e0e0e0', marginRight: 5, marginBottom: 5 },
   chipSelected: { backgroundColor: '#1a237e' },
   chipText: { fontSize: 11, color: '#333' },
-  chipTextSelected: { color: '#fff', fontWeight: 'bold' },
-  fileSelectedText: { fontSize: 11, color: 'green', fontWeight: 'bold', marginBottom: 8 }
+  chipTextSelected: { color: '#fff', fontWeight: 'bold' }
 });
