@@ -8,14 +8,12 @@ import { createStackNavigator } from '@react-navigation/stack';
 
 const Stack = createStackNavigator();
 
-// 1. ALL CLASSES (1 to 12)
 const ALL_CLASSES = [
   'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
   'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10',
   'Class 11', 'Class 12 IP', 'Class 12 CS'
 ];
 
-// SUBJECT MAPPER
 const GET_SUBJECTS = (cls) => {
   if (['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'].includes(cls)) {
     return ['English', 'Hindi', 'Maths', 'EVS', 'Computer', 'English Grammar', 'Hindi Grammar'];
@@ -28,13 +26,11 @@ const GET_SUBJECTS = (cls) => {
   }
 };
 
-// INITIAL MOCK DATA
 const INITIAL_STUDENTS = [
   { regNo: '1001', pass: 'aims123', name: 'Rahul Sharma', class: 'Class 10', parentName: 'Mr. Sharma', dob: '2010-05-15', joiningDate: '2026-04-01', feesAmount: '2000', feeStatus: 'Paid', isUnlocked: true },
   { regNo: '1002', pass: 'aims456', name: 'Priya Verma', class: 'Class 12 IP', parentName: 'Mr. Verma', dob: '2008-08-20', joiningDate: '2026-04-01', feesAmount: '2500', feeStatus: 'Pending', isUnlocked: false }
 ];
 
-// --- LOGIN SCREEN ---
 function LoginScreen({ navigation, route }) {
   const { students } = route.params;
   const [regNo, setRegNo] = useState('');
@@ -49,7 +45,7 @@ function LoginScreen({ navigation, route }) {
     if (user) {
       navigation.navigate('StudentPortal', { student: user });
     } else {
-      Alert.alert('Error', 'Invalid Reg Number or Account deleted!');
+      Alert.alert('Error', 'Invalid Registration Number or Password!');
     }
   };
 
@@ -66,7 +62,6 @@ function LoginScreen({ navigation, route }) {
   );
 }
 
-// --- ADMIN DASHBOARD (5 BUTTONS) ---
 function AdminDashboardScreen({ navigation }) {
   return (
     <View style={styles.container}>
@@ -100,7 +95,6 @@ function AdminDashboardScreen({ navigation }) {
   );
 }
 
-// --- 1. NEW STUDENT REGISTRATION ---
 function RegisterStudentScreen({ route }) {
   const { students, setStudents } = route.params;
   const [name, setName] = useState('');
@@ -153,7 +147,6 @@ function RegisterStudentScreen({ route }) {
   );
 }
 
-// --- STUDENT PORTAL (CLASS RESTRICTED) ---
 function StudentPortalScreen({ route, navigation }) {
   const { student } = route.params;
   const subjects = GET_SUBJECTS(student.class);
@@ -192,12 +185,11 @@ function StudentPortalScreen({ route, navigation }) {
   );
 }
 
-// --- DUMMY PLACEHOLDERS FOR REMAINING SCREENS ---
 function DummyScreen({ route }) {
   return (
     <View style={styles.container}>
       <Text style={styles.headerTitle}>{route.name} Module Active</Text>
-      <Text style={styles.subTitle}>Connected and running ready for Render build.</Text>
+      <Text style={styles.subTitle}>System Module connected and running ready.</Text>
     </View>
   );
 }
