@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import './App.css'; // Styling file
 
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userId, setUserId] = useState('');
+  // ... baki code
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState('');
