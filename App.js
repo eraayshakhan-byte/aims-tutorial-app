@@ -3,10 +3,6 @@ import React, { useState } from 'react';
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState('');
-  // ... baki code
-function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -38,7 +34,7 @@ function App() {
   };
 
   return (
-    <div className="container">
+    <div style={{ maxWidth: '480px', margin: '40px auto', padding: '20px', fontFamily: 'sans-serif' }}>
       {!isLoggedIn ? (
         /* 1. LOGIN SECTION */
         <div id="login-section">
@@ -46,33 +42,37 @@ function App() {
 
           {/* Error Message if Login Fails */}
           {loginError && (
-            <div className="error-msg">
+            <div style={{ color: 'red', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '15px' }}>
               User ID and Password do not match!
             </div>
           )}
 
           <form onSubmit={handleLogin}>
-            <div className="input-group">
-              <label>User ID</label>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px' }}>User ID</label>
               <input
                 type="text"
                 placeholder="Enter User ID"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
+                style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
               />
             </div>
 
-            <div className="input-group">
-              <label>Password</label>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Password</label>
               <input
                 type="password"
                 placeholder="Enter Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
               />
             </div>
 
-            <button type="submit" className="btn">Login</button>
+            <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#0084ff', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}>
+              Login
+            </button>
           </form>
         </div>
       ) : (
@@ -81,39 +81,45 @@ function App() {
           <h2>Course Subjects</h2>
 
           {/* Subject Item 1 */}
-          <div className="subject-card">
-            <div className="subject-header" onClick={() => toggleSubject('sub1')}>
+          <div style={{ border: '1px solid #ccc', borderRadius: '8px', marginBottom: '10px', overflow: 'hidden' }}>
+            <div 
+              onClick={() => toggleSubject('sub1')} 
+              style={{ padding: '12px', background: '#f0f0f0', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}
+            >
               <span>Computer Science</span>
               <span>{openSubject === 'sub1' ? '▲' : '▼'}</span>
             </div>
             {openSubject === 'sub1' && (
-              <div className="resource-options">
-                <button className="res-btn">Notes</button>
-                <button className="res-btn">Quiz</button>
-                <button className="res-btn">Papers</button>
+              <div style={{ padding: '12px', display: 'flex', gap: '8px', background: '#fff' }}>
+                <button style={{ flex: 1, padding: '8px' }}>Notes</button>
+                <button style={{ flex: 1, padding: '8px' }}>Quiz</button>
+                <button style={{ flex: 1, padding: '8px' }}>Papers</button>
               </div>
             )}
           </div>
 
           {/* Subject Item 2 */}
-          <div className="subject-card">
-            <div className="subject-header" onClick={() => toggleSubject('sub2')}>
+          <div style={{ border: '1px solid #ccc', borderRadius: '8px', marginBottom: '10px', overflow: 'hidden' }}>
+            <div 
+              onClick={() => toggleSubject('sub2')} 
+              style={{ padding: '12px', background: '#f0f0f0', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}
+            >
               <span>Mathematics</span>
               <span>{openSubject === 'sub2' ? '▲' : '▼'}</span>
             </div>
             {openSubject === 'sub2' && (
-              <div className="resource-options">
-                <button className="res-btn">Notes</button>
-                <button className="res-btn">Quiz</button>
-                <button className="res-btn">Papers</button>
+              <div style={{ padding: '12px', display: 'flex', gap: '8px', background: '#fff' }}>
+                <button style={{ flex: 1, padding: '8px' }}>Notes</button>
+                <button style={{ flex: 1, padding: '8px' }}>Quiz</button>
+                <button style={{ flex: 1, padding: '8px' }}>Papers</button>
               </div>
             )}
           </div>
 
           {/* Gallery File Upload Section */}
-          <div className="upload-box">
-            <p>Upload Homework / Doubts</p>
-            <label htmlFor="gallery-file" className="file-label">
+          <div style={{ border: '2px dashed #aaa', padding: '20px', textAlign: 'center', borderRadius: '8px', marginTop: '20px' }}>
+            <p style={{ margin: '0 0 10px 0' }}>Upload Homework / Doubts</p>
+            <label htmlFor="gallery-file" style={{ display: 'inline-block', padding: '8px 16px', background: '#333', color: '#fff', borderRadius: '5px', cursor: 'pointer' }}>
               Choose from Gallery / Files
             </label>
             <input
@@ -123,7 +129,7 @@ function App() {
               onChange={handleFileChange}
               style={{ display: 'none' }}
             />
-            {selectedFile && <div className="file-name">Selected: {selectedFile}</div>}
+            {selectedFile && <div style={{ marginTop: '10px', color: '#0084ff', fontSize: '0.9rem' }}>Selected: {selectedFile}</div>}
           </div>
         </div>
       )}
