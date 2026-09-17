@@ -35,7 +35,7 @@ function App() {
   const [modalTitle, setModalTitle] = useState('');
   
   // Admin Form State
-  const [newMaterialSubject, setNewMaterialSubject] = useState('Computer Science / IP');
+  const [newMaterialSubject, setNewMaterialSubject] = useState('English Grammar');
   const [newMaterialTitle, setNewMaterialTitle] = useState('');
   const [newMaterialType, setNewMaterialType] = useState('Notes');
 
@@ -44,6 +44,18 @@ function App() {
 
   // Classes List (1st to 12th)
   const classesList = Array.from({ length: 12 }, (_, i) => `Class ${i + 1}th`);
+
+  // Subjects List including English Grammar & Hindi Grammar
+  const allSubjectsList = [
+    { id: 'math', name: 'Mathematics', icon: 'fa-calculator' },
+    { id: 'cs', name: 'Computer Science', icon: 'fa-code' },
+    { id: 'sci', name: 'Science', icon: 'fa-flask' },
+    { id: 'sst', name: 'Social Science (SST)', icon: 'fa-earth-americas' },
+    { id: 'eng', name: 'English Literature', icon: 'fa-book-open' },
+    { id: 'eng_gram', name: 'English Grammar', icon: 'fa-pen-nib' },
+    { id: 'hin', name: 'Hindi Literature', icon: 'fa-language' },
+    { id: 'hin_gram', name: 'Hindi Grammar (व्याकरण)', icon: 'fa-file-signature' }
+  ];
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -145,10 +157,10 @@ function App() {
     const classNum = parseInt(selectedClass.replace('Class ', '').replace('th', ''));
     const isPaidStudent = currentStudent ? currentStudent.isPaid : false;
 
-    // Rules:
+    // Access Rules:
     // 1st - 9th: All Free
     // 10th, 11th, 12th: Notes & Quiz Free, Papers & Sample Papers Locked unless Paid
-    if (classNum >= 10 && (folderType === 'paper' || folderType === 'sample_paper') && !isPaidStudent) {
+    if ((classNum >= 10) && (folderType === 'paper' || folderType === 'sample_paper') && !isPaidStudent) {
       setActiveModal('lockedPrompt');
     } else {
       setModalTitle(`${selectedClass} - ${title}`);
@@ -307,59 +319,46 @@ function App() {
                       <button onClick={() => setIsClassVerified(false)} style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '0.75rem', textDecoration: 'underline' }}>Change Class</button>
                     </div>
 
-                    <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '12px' }}>Subject Folders & Options:</p>
+                    <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '12px' }}>All Subjects & Options:</p>
 
-                    {/* Dynamic Subjects according to Class */}
-                    {['11th', '12th'].includes(selectedClass.replace('Class ', '')) ? (
-                      /* Class 11th & 12th: IP Full Course */
-                      <div style={{ background: '#262626', marginBottom: '12px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #333' }}>
-                        <div onClick={() => setOpenSubject(openSubject === 'ip' ? null : 'ip')} style={{ padding: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#2a2a2a' }}>
-                          <span><i className="fa-solid fa-laptop-code" style={{ marginRight: '8px', color: '#0084ff' }}></i> IP (Informatics Practices)</span>
-                          <i className={`fa-solid ${openSubject === 'ip' ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
-                        </div>
-                        {openSubject === 'ip' && (
-                          <div style={{ padding: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#202020', borderTop: '1px solid #333' }}>
-                            <button onClick={() => handleFolderClick('notes', 'IP Notes')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#ff9900' }}></i> Notes (Free)</button>
-                            <button onClick={() => handleFolderClick('quiz', 'IP Quiz')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#00c853' }}></i> Quiz (Free)</button>
-                            <button onClick={() => handleFolderClick('paper', 'IP Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${currentStudent?.isPaid ? 'fa-folder-open' : 'fa-lock'}`} style={{ color: currentStudent?.isPaid ? '#0084ff' : '#ff4d4d' }}></i> Papers {!currentStudent?.isPaid && '(Paid)'}</button>
-                            <button onClick={() => handleFolderClick('sample_paper', 'IP Sample Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${currentStudent?.isPaid ? 'fa-folder-open' : 'fa-lock'}`} style={{ color: currentStudent?.isPaid ? '#0084ff' : '#ff4d4d' }}></i> Sample Papers {!currentStudent?.isPaid && '(Paid)'}</button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* Classes 1st to 10th Standard Subjects */
-                      <>
+                    {/* Dynamic Subjects List */}
+                    <div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {['11th', '12th'].includes(selectedClass.replace('Class ', '')) ? (
+                        /* Class 11th & 12th: IP Full Course */
                         <div style={{ background: '#262626', marginBottom: '10px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #333' }}>
-                          <div onClick={() => setOpenSubject(openSubject === 'cs' ? null : 'cs')} style={{ padding: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#2a2a2a' }}>
-                            <span><i className="fa-solid fa-code" style={{ marginRight: '8px', color: '#0084ff' }}></i> Computer Science</span>
-                            <i className={`fa-solid ${openSubject === 'cs' ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+                          <div onClick={() => setOpenSubject(openSubject === 'ip' ? null : 'ip')} style={{ padding: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#2a2a2a' }}>
+                            <span><i className="fa-solid fa-laptop-code" style={{ marginRight: '8px', color: '#0084ff' }}></i> IP (Informatics Practices)</span>
+                            <i className={`fa-solid ${openSubject === 'ip' ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
                           </div>
-                          {openSubject === 'cs' && (
+                          {openSubject === 'ip' && (
                             <div style={{ padding: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#202020', borderTop: '1px solid #333' }}>
-                              <button onClick={() => handleFolderClick('notes', 'CS Notes')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#ff9900' }}></i> Notes PDF</button>
-                              <button onClick={() => handleFolderClick('quiz', 'CS Quiz')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#00c853' }}></i> Quiz</button>
-                              <button onClick={() => handleFolderClick('paper', 'CS Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${selectedClass === 'Class 10th' && !currentStudent?.isPaid ? 'fa-lock' : 'fa-folder-open'}`} style={{ color: '#0084ff' }}></i> Papers</button>
-                              <button onClick={() => handleFolderClick('sample_paper', 'CS Sample Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${selectedClass === 'Class 10th' && !currentStudent?.isPaid ? 'fa-lock' : 'fa-folder-open'}`} style={{ color: selectedClass === 'Class 10th' && !currentStudent?.isPaid ? '#ff4d4d' : '#0084ff' }}></i> Sample Paper {!currentStudent?.isPaid && selectedClass === 'Class 10th' && '(Paid)'}</button>
+                              <button onClick={() => handleFolderClick('notes', 'IP Notes')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#ff9900' }}></i> Notes (Free)</button>
+                              <button onClick={() => handleFolderClick('quiz', 'IP Quiz')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#00c853' }}></i> Quiz (Free)</button>
+                              <button onClick={() => handleFolderClick('paper', 'IP Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${currentStudent?.isPaid ? 'fa-folder-open' : 'fa-lock'}`} style={{ color: currentStudent?.isPaid ? '#0084ff' : '#ff4d4d' }}></i> Papers {!currentStudent?.isPaid && '(Paid)'}</button>
+                              <button onClick={() => handleFolderClick('sample_paper', 'IP Sample Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${currentStudent?.isPaid ? 'fa-folder-open' : 'fa-lock'}`} style={{ color: currentStudent?.isPaid ? '#0084ff' : '#ff4d4d' }}></i> Sample Papers {!currentStudent?.isPaid && '(Paid)'}</button>
                             </div>
                           )}
                         </div>
-
-                        <div style={{ background: '#262626', marginBottom: '10px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #333' }}>
-                          <div onClick={() => setOpenSubject(openSubject === 'math' ? null : 'math')} style={{ padding: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#2a2a2a' }}>
-                            <span><i className="fa-solid fa-calculator" style={{ marginRight: '8px', color: '#0084ff' }}></i> Mathematics</span>
-                            <i className={`fa-solid ${openSubject === 'math' ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
-                          </div>
-                          {openSubject === 'math' && (
-                            <div style={{ padding: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#202020', borderTop: '1px solid #333' }}>
-                              <button onClick={() => handleFolderClick('notes', 'Math Notes')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#ff9900' }}></i> Notes PDF</button>
-                              <button onClick={() => handleFolderClick('quiz', 'Math Quiz')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#00c853' }}></i> Quiz</button>
-                              <button onClick={() => handleFolderClick('paper', 'Math Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${selectedClass === 'Class 10th' && !currentStudent?.isPaid ? 'fa-lock' : 'fa-folder-open'}`} style={{ color: '#0084ff' }}></i> Papers</button>
-                              <button onClick={() => handleFolderClick('sample_paper', 'Math Sample Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${selectedClass === 'Class 10th' && !currentStudent?.isPaid ? 'fa-lock' : 'fa-folder-open'}`} style={{ color: selectedClass === 'Class 10th' && !currentStudent?.isPaid ? '#ff4d4d' : '#0084ff' }}></i> Sample Paper {!currentStudent?.isPaid && selectedClass === 'Class 10th' && '(Paid)'}</button>
+                      ) : (
+                        /* Classes 1st to 10th All Subjects including English & Hindi Grammar */
+                        allSubjectsList.map((subj) => (
+                          <div key={subj.id} style={{ background: '#262626', marginBottom: '10px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #333' }}>
+                            <div onClick={() => setOpenSubject(openSubject === subj.id ? null : subj.id)} style={{ padding: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#2a2a2a' }}>
+                              <span><i className={`fa-solid ${subj.icon}`} style={{ marginRight: '8px', color: '#0084ff' }}></i> {subj.name}</span>
+                              <i className={`fa-solid ${openSubject === subj.id ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
                             </div>
-                          )}
-                        </div>
-                      </>
-                    )}
+                            {openSubject === subj.id && (
+                              <div style={{ padding: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#202020', borderTop: '1px solid #333' }}>
+                                <button onClick={() => handleFolderClick('notes', `${subj.name} Notes`)} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#ff9900' }}></i> Notes PDF</button>
+                                <button onClick={() => handleFolderClick('quiz', `${subj.name} Quiz`)} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#00c853' }}></i> Quiz</button>
+                                <button onClick={() => handleFolderClick('paper', `${subj.name} Papers`)} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${selectedClass === 'Class 10th' && !currentStudent?.isPaid ? 'fa-lock' : 'fa-folder-open'}`} style={{ color: selectedClass === 'Class 10th' && !currentStudent?.isPaid ? '#ff4d4d' : '#0084ff' }}></i> Papers {!currentStudent?.isPaid && selectedClass === 'Class 10th' && '(Paid)'}</button>
+                                <button onClick={() => handleFolderClick('sample_paper', `${subj.name} Sample Papers`)} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${selectedClass === 'Class 10th' && !currentStudent?.isPaid ? 'fa-lock' : 'fa-folder-open'}`} style={{ color: selectedClass === 'Class 10th' && !currentStudent?.isPaid ? '#ff4d4d' : '#0084ff' }}></i> Sample Paper {!currentStudent?.isPaid && selectedClass === 'Class 10th' && '(Paid)'}</button>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
 
                     {/* ASK DOUBT SECTION */}
                     <div style={{ marginTop: '18px', padding: '12px', border: '2px dashed #444', borderRadius: '10px', textAlign: 'center', background: '#181818' }}>
