@@ -51,8 +51,8 @@ function App() {
     <div style={{ backgroundColor: '#121212', color: '#ffffff', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-      <div style={{ width: '100%', maxWidth: '480px', backgroundColor: '#1e1e1e', padding: '25px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)', border: '1px solid #2a2a2a' }}>
-
+      return (
+  <div style={{ backgroundColor: '#121212', color: '#ffffff', minHeight: '100vh', width: '100vw', margin: 0, padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
         {/* 1. ROLE SELECTION STEP */}
         {!userRole && (
           <div style={{ textAlign: 'center' }}>
