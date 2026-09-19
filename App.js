@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function App() {
   const [userRole, setUserRole] = useState(null); // 'student', 'admin', 'register'
@@ -21,19 +21,25 @@ function App() {
   const [regPass, setRegPass] = useState('');
   const [regSuccess, setRegSuccess] = useState('');
 
-  // Class Selection & Verification State
+  // Class Selection State (Student & Admin)
   const [selectedClass, setSelectedClass] = useState('');
   const [isClassVerified, setIsClassVerified] = useState(false);
+  const [adminSelectedClass, setAdminSelectedClass] = useState('');
 
-  // Dynamic Materials & Submissions
+  // Dynamic Materials, Quizzes & Submissions
   const [adminMaterials, setAdminMaterials] = useState([]);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploadedDoubts, setUploadedDoubts] = useState([]);
   
   // UI & Modal States
   const [openSubject, setOpenSubject] = useState(null);
   const [activeModal, setActiveModal] = useState(null); 
   const [modalTitle, setModalTitle] = useState('');
-  
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Quiz Creator State (ChatGPT Prompt / Live Quiz)
+  const [quizTopic, setQuizTopic] = useState('');
+  const [generatedQuizPrompt, setGeneratedQuizPrompt] = useState('');
+
   // Admin Form State
   const [newMaterialSubject, setNewMaterialSubject] = useState('English Grammar');
   const [newMaterialTitle, setNewMaterialTitle] = useState('');
@@ -42,10 +48,20 @@ function App() {
   const ADMIN_ID = "admin";
   const ADMIN_PASS = "admin123";
 
-  // Classes List (1st to 12th)
+  // Internet connectivity tracker for Quizzes
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const classesList = Array.from({ length: 12 }, (_, i) => `Class ${i + 1}th`);
 
-  // Subjects List including English Grammar & Hindi Grammar
   const allSubjectsList = [
     { id: 'math', name: 'Mathematics', icon: 'fa-calculator' },
     { id: 'cs', name: 'Computer Science', icon: 'fa-code' },
@@ -102,6 +118,7 @@ function App() {
     setLoginError('');
     setSelectedClass('');
     setIsClassVerified(false);
+    setAdminSelectedClass('');
   };
 
   const handleClassSelect = (cls) => {
@@ -109,7 +126,6 @@ function App() {
     setIsClassVerified(true);
   };
 
-  // Toggle Paid Access (Admin Only)
   const toggleStudentPaidStatus = (studentId) => {
     setRegisteredStudents(registeredStudents.map(std => {
       if (std.id === studentId) {
@@ -123,18 +139,19 @@ function App() {
     }));
   };
 
-  // File Upload Handler (Ask Doubts)
-  const handleFileUpload = (e) => {
+  // Separate Doubt Upload Handler
+  const handleDoubtUpload = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const newFile = {
+      const newDoubt = {
         name: file.name,
         size: (file.size / 1024).toFixed(1) + ' KB',
         date: new Date().toLocaleTimeString(),
         student: currentStudent ? currentStudent.name : 'Student',
-        className: selectedClass
+        className: selectedClass || 'Not Specified'
       };
-      setUploadedFiles([newFile, ...uploadedFiles]);
+      setUploadedDoubts([newDoubt, ...uploadedDoubts]);
+      alert('Doubt uploaded successfully!');
     }
   };
 
@@ -142,6 +159,7 @@ function App() {
     e.preventDefault();
     if (!newMaterialTitle) return;
     const newItem = {
+      targetClass: adminSelectedClass,
       subject: newMaterialSubject,
       title: newMaterialTitle,
       type: newMaterialType,
@@ -152,14 +170,23 @@ function App() {
     setActiveModal(null);
   };
 
-  // Content Access Control Logic
+  const generateChatGPTQuizPrompt = () => {
+    if (!quizTopic) return;
+    const prompt = `Create a 5-question multiple choice quiz on the topic "${quizTopic}" for ${adminSelectedClass || 'Students'}. Format with Questions, Options (A-D), and Correct Answers clearly marked.`;
+    setGeneratedQuizPrompt(prompt);
+  };
+
   const handleFolderClick = (folderType, title) => {
     const classNum = parseInt(selectedClass.replace('Class ', '').replace('th', ''));
     const isPaidStudent = currentStudent ? currentStudent.isPaid : false;
 
-    // Access Rules:
-    // 1st - 9th: All Free
-    // 10th, 11th, 12th: Notes & Quiz Free, Papers & Sample Papers Locked unless Paid
+    if (folderType === 'quiz') {
+      if (!isOnline) {
+        alert('🌐 Internet connection is required to attempt online quizzes!');
+        return;
+      }
+    }
+
     if ((classNum >= 10) && (folderType === 'paper' || folderType === 'sample_paper') && !isPaidStudent) {
       setActiveModal('lockedPrompt');
     } else {
@@ -296,7 +323,6 @@ function App() {
             {/* --- STUDENT VIEW --- */}
             {userRole === 'student' && (
               <div>
-                {/* STEP 1: CLASS SELECTION (1st to 12th) */}
                 {!isClassVerified ? (
                   <div>
                     <h4 style={{ color: '#0084ff', marginBottom: '12px', fontSize: '1rem' }}>Select Your Class (1 to 12):</h4>
@@ -310,7 +336,6 @@ function App() {
                     </div>
                   </div>
                 ) : (
-                  /* STEP 2: VERIFIED CLASS SUBJECTS & FOLDERS */
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0, 200, 83, 0.15)', border: '1px solid #00c853', padding: '10px 14px', borderRadius: '8px', marginBottom: '15px' }}>
                       <span style={{ color: '#00c853', fontSize: '0.85rem', fontWeight: 'bold' }}>
@@ -319,12 +344,21 @@ function App() {
                       <button onClick={() => setIsClassVerified(false)} style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '0.75rem', textDecoration: 'underline' }}>Change Class</button>
                     </div>
 
-                    <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '12px' }}>All Subjects & Options:</p>
+                    {/* DEDICATED ASK DOUBT SECTION */}
+                    <div style={{ marginBottom: '15px', padding: '12px', background: '#282828', borderRadius: '8px', border: '1px solid #0084ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <h5 style={{ margin: 0, fontSize: '0.9rem', color: '#fff' }}><i className="fa-solid fa-circle-question" style={{ color: '#0084ff', marginRight: '6px' }}></i> Ask Doubt Session</h5>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#aaa' }}>Upload solution or questions here</p>
+                      </div>
+                      <button onClick={() => setActiveModal('studentDoubtUpload')} style={{ padding: '6px 12px', background: '#0084ff', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                        Upload
+                      </button>
+                    </div>
 
-                    {/* Dynamic Subjects List */}
-                    <div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
+                    <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '12px' }}>All Subjects Study Material:</p>
+
+                    <div style={{ maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
                       {['11th', '12th'].includes(selectedClass.replace('Class ', '')) ? (
-                        /* Class 11th & 12th: IP Full Course */
                         <div style={{ background: '#262626', marginBottom: '10px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #333' }}>
                           <div onClick={() => setOpenSubject(openSubject === 'ip' ? null : 'ip')} style={{ padding: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#2a2a2a' }}>
                             <span><i className="fa-solid fa-laptop-code" style={{ marginRight: '8px', color: '#0084ff' }}></i> IP (Informatics Practices)</span>
@@ -333,14 +367,13 @@ function App() {
                           {openSubject === 'ip' && (
                             <div style={{ padding: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#202020', borderTop: '1px solid #333' }}>
                               <button onClick={() => handleFolderClick('notes', 'IP Notes')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#ff9900' }}></i> Notes (Free)</button>
-                              <button onClick={() => handleFolderClick('quiz', 'IP Quiz')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#00c853' }}></i> Quiz (Free)</button>
+                              <button onClick={() => handleFolderClick('quiz', 'IP Quiz')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-circle-play" style={{ color: '#00c853' }}></i> Quiz (Online)</button>
                               <button onClick={() => handleFolderClick('paper', 'IP Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${currentStudent?.isPaid ? 'fa-folder-open' : 'fa-lock'}`} style={{ color: currentStudent?.isPaid ? '#0084ff' : '#ff4d4d' }}></i> Papers {!currentStudent?.isPaid && '(Paid)'}</button>
                               <button onClick={() => handleFolderClick('sample_paper', 'IP Sample Papers')} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${currentStudent?.isPaid ? 'fa-folder-open' : 'fa-lock'}`} style={{ color: currentStudent?.isPaid ? '#0084ff' : '#ff4d4d' }}></i> Sample Papers {!currentStudent?.isPaid && '(Paid)'}</button>
                             </div>
                           )}
                         </div>
                       ) : (
-                        /* Classes 1st to 10th All Subjects including English & Hindi Grammar */
                         allSubjectsList.map((subj) => (
                           <div key={subj.id} style={{ background: '#262626', marginBottom: '10px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #333' }}>
                             <div onClick={() => setOpenSubject(openSubject === subj.id ? null : subj.id)} style={{ padding: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#2a2a2a' }}>
@@ -350,7 +383,7 @@ function App() {
                             {openSubject === subj.id && (
                               <div style={{ padding: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#202020', borderTop: '1px solid #333' }}>
                                 <button onClick={() => handleFolderClick('notes', `${subj.name} Notes`)} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#ff9900' }}></i> Notes PDF</button>
-                                <button onClick={() => handleFolderClick('quiz', `${subj.name} Quiz`)} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-folder-open" style={{ color: '#00c853' }}></i> Quiz</button>
+                                <button onClick={() => handleFolderClick('quiz', `${subj.name} Quiz`)} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className="fa-solid fa-circle-play" style={{ color: '#00c853' }}></i> Quiz (Online)</button>
                                 <button onClick={() => handleFolderClick('paper', `${subj.name} Papers`)} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${selectedClass === 'Class 10th' && !currentStudent?.isPaid ? 'fa-lock' : 'fa-folder-open'}`} style={{ color: selectedClass === 'Class 10th' && !currentStudent?.isPaid ? '#ff4d4d' : '#0084ff' }}></i> Papers {!currentStudent?.isPaid && selectedClass === 'Class 10th' && '(Paid)'}</button>
                                 <button onClick={() => handleFolderClick('sample_paper', `${subj.name} Sample Papers`)} style={{ padding: '8px', background: '#333', border: '1px solid #444', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}><i className={`fa-solid ${selectedClass === 'Class 10th' && !currentStudent?.isPaid ? 'fa-lock' : 'fa-folder-open'}`} style={{ color: selectedClass === 'Class 10th' && !currentStudent?.isPaid ? '#ff4d4d' : '#0084ff' }}></i> Sample Paper {!currentStudent?.isPaid && selectedClass === 'Class 10th' && '(Paid)'}</button>
                               </div>
@@ -359,29 +392,6 @@ function App() {
                         ))
                       )}
                     </div>
-
-                    {/* ASK DOUBT SECTION */}
-                    <div style={{ marginTop: '18px', padding: '12px', border: '2px dashed #444', borderRadius: '10px', textAlign: 'center', background: '#181818' }}>
-                      <i className="fa-solid fa-circle-question" style={{ fontSize: '1.6rem', color: '#0084ff' }}></i>
-                      <p style={{ fontSize: '0.85rem', marginTop: '4px', color: '#bbb', marginBottom: '8px' }}>Ask Doubt / Upload Solution ({selectedClass})</p>
-                      <label htmlFor="gallery-file" style={{ display: 'inline-block', padding: '8px 16px', background: '#0084ff', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                        <i className="fa-regular fa-image" style={{ marginRight: '6px' }}></i> Upload File from Gallery
-                      </label>
-                      <input type="file" id="gallery-file" accept="image/*,application/pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
-                    </div>
-
-                    {/* Uploaded Files */}
-                    {uploadedFiles.length > 0 && (
-                      <div style={{ marginTop: '12px', background: '#252525', padding: '10px', borderRadius: '8px' }}>
-                        <h5 style={{ margin: '0 0 6px 0', color: '#0084ff', fontSize: '0.8rem' }}>Your Submissions:</h5>
-                        {uploadedFiles.map((file, idx) => (
-                          <div key={idx} style={{ fontSize: '0.75rem', padding: '4px 0', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between' }}>
-                            <span>📄 {file.name}</span>
-                            <span style={{ color: '#aaa' }}>{file.size}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -390,21 +400,37 @@ function App() {
             {/* --- ADMIN VIEW --- */}
             {userRole === 'admin' && (
               <div>
-                <p style={{ color: '#ff9900', fontSize: '0.85rem', marginBottom: '15px' }}>Admin Control Panel</p>
+                <p style={{ color: '#ff9900', fontSize: '0.85rem', marginBottom: '12px' }}>Admin Management Panel</p>
 
-                <div onClick={() => setActiveModal('adminUpload')} style={{ background: '#282828', padding: '14px', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #ff9900', cursor: 'pointer' }}>
-                  <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem' }}><i className="fa-solid fa-plus-circle"></i> Upload New Notes / Papers</h4>
-                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: 0 }}>Add study material for students</p>
+                {/* Class Filter Selection for Admin */}
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ fontSize: '0.8rem', color: '#aaa', display: 'block', marginBottom: '4px' }}>Select Target Class to Manage:</label>
+                  <select value={adminSelectedClass} onChange={(e) => setAdminSelectedClass(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#282828', color: '#fff', border: '1px solid #444', outline: 'none' }}>
+                    <option value="">-- All Classes --</option>
+                    {classesList.map((cls, idx) => (
+                      <option key={idx} value={cls}>{cls}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div onClick={() => { if(!adminSelectedClass) { alert('Please select a Class first!'); return; } setActiveModal('adminUpload'); }} style={{ background: '#282828', padding: '14px', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #ff9900', cursor: 'pointer' }}>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem' }}><i className="fa-solid fa-plus-circle"></i> Upload Material ({adminSelectedClass || 'Select Class'})</h4>
+                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: 0 }}>Add Notes or Question Papers</p>
+                </div>
+
+                <div onClick={() => { if(!adminSelectedClass) { alert('Please select a Class first!'); return; } setActiveModal('adminQuizAI'); }} style={{ background: '#282828', padding: '14px', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #00c853', cursor: 'pointer' }}>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem' }}><i className="fa-solid fa-robot"></i> Create AI Quiz via ChatGPT</h4>
+                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: 0 }}>Auto-generate quiz prompts for students</p>
                 </div>
 
                 <div onClick={() => setActiveModal('adminDoubts')} style={{ background: '#282828', padding: '14px', borderRadius: '8px', marginBottom: '10px', borderLeft: '4px solid #0084ff', cursor: 'pointer' }}>
                   <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem' }}><i className="fa-solid fa-folder-open"></i> Review Student Doubts</h4>
-                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: 0 }}>Uploaded files: {uploadedFiles.length}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: 0 }}>Uploaded Doubts: {uploadedDoubts.length}</p>
                 </div>
 
-                <div onClick={() => setActiveModal('adminUsers')} style={{ background: '#282828', padding: '14px', borderRadius: '8px', borderLeft: '4px solid #00c853', cursor: 'pointer' }}>
+                <div onClick={() => setActiveModal('adminUsers')} style={{ background: '#282828', padding: '14px', borderRadius: '8px', borderLeft: '4px solid #ab47bc', cursor: 'pointer' }}>
                   <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem' }}><i className="fa-solid fa-user-check"></i> Student Access Management</h4>
-                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: 0 }}>Allow/Unlock paid access for offline fees</p>
+                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: 0 }}>Unlock access for paid offline students</p>
                 </div>
               </div>
             )}
@@ -414,6 +440,42 @@ function App() {
 
         {/* --- MODAL DIALOGS --- */}
 
+        {/* Student Doubt Upload Modal */}
+        {activeModal === 'studentDoubtUpload' && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+            <div style={{ background: '#222', padding: '20px', borderRadius: '12px', width: '85%', maxWidth: '350px', textAlign: 'center' }}>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: '#0084ff' }}>Upload Question / Solution</h3>
+              <p style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '15px' }}>Class: {selectedClass}</p>
+              <input type="file" accept="image/*,application/pdf" onChange={handleDoubtUpload} style={{ marginBottom: '15px', color: '#ccc', fontSize: '0.8rem' }} />
+              <button onClick={() => setActiveModal(null)} style={{ padding: '8px 20px', background: '#444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Close</button>
+            </div>
+          </div>
+        )}
+
+        {/* ChatGPT AI Quiz Modal */}
+        {activeModal === 'adminQuizAI' && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+            <div style={{ background: '#222', padding: '20px', borderRadius: '10px', width: '85%', maxWidth: '400px' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#00c853', fontSize: '1.1rem' }}>Generate Quiz using ChatGPT</h3>
+              <p style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '10px' }}>Class: {adminSelectedClass}</p>
+              
+              <input type="text" placeholder="Enter Topic (e.g., Tenses / Algebra)" value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', background: '#333', color: '#fff', border: '1px solid #444', outline: 'none', marginBottom: '10px', boxSizing: 'border-box' }} />
+              
+              <button onClick={generateChatGPTQuizPrompt} style={{ width: '100%', padding: '10px', background: '#00c853', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '10px' }}>
+                Generate Prompt
+              </button>
+
+              {generatedQuizPrompt && (
+                <div style={{ background: '#181818', padding: '10px', borderRadius: '6px', fontSize: '0.75rem', color: '#ccc', maxHeight: '120px', overflowY: 'auto', marginBottom: '10px', whiteSpace: 'pre-line' }}>
+                  {generatedQuizPrompt}
+                </div>
+              )}
+
+              <button onClick={() => setActiveModal(null)} style={{ width: '100%', padding: '8px', background: '#444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Close</button>
+            </div>
+          </div>
+        )}
+
         {/* Locked Content Prompt */}
         {activeModal === 'lockedPrompt' && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
@@ -421,7 +483,7 @@ function App() {
               <i className="fa-solid fa-lock" style={{ fontSize: '2.5rem', color: '#ff4d4d', marginBottom: '10px' }}></i>
               <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: '#fff' }}>Paid Version Required</h3>
               <p style={{ fontSize: '0.85rem', color: '#ccc', lineHeight: '1.4', marginBottom: '15px' }}>
-                Sample Papers and Papers for this class are locked. Payment is offline. Please contact Admin to unlock access after fee submission.
+                Sample Papers and Papers for this class are locked. Please contact Admin to unlock access after fee submission.
               </p>
               <button onClick={() => setActiveModal(null)} style={{ padding: '8px 20px', background: '#ff4d4d', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Close</button>
             </div>
@@ -433,7 +495,7 @@ function App() {
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
             <div style={{ background: '#222', padding: '20px', borderRadius: '10px', width: '85%', maxWidth: '350px', textAlign: 'center' }}>
               <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem' }}>{modalTitle}</h3>
-              <p style={{ fontSize: '0.85rem', color: '#aaa', margin: '15px 0' }}>📄 Material loaded successfully for viewing.</p>
+              <p style={{ fontSize: '0.85rem', color: '#aaa', margin: '15px 0' }}>📄 Material loaded successfully.</p>
               <button onClick={() => setActiveModal(null)} style={{ padding: '8px 20px', background: '#0084ff', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Close</button>
             </div>
           </div>
@@ -443,7 +505,8 @@ function App() {
         {activeModal === 'adminUpload' && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
             <div style={{ background: '#222', padding: '20px', borderRadius: '10px', width: '85%', maxWidth: '380px' }}>
-              <h3 style={{ margin: '0 0 15px 0', color: '#ff9900', fontSize: '1.1rem' }}>Upload Material for Students</h3>
+              <h3 style={{ margin: '0 0 10px 0', color: '#ff9900', fontSize: '1.1rem' }}>Upload Material</h3>
+              <p style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '10px' }}>Target Class: {adminSelectedClass}</p>
               <form onSubmit={handleAdminAddMaterial}>
                 <div style={{ marginBottom: '12px' }}>
                   <label style={{ fontSize: '0.8rem', color: '#aaa' }}>Subject</label>
@@ -453,7 +516,6 @@ function App() {
                   <label style={{ fontSize: '0.8rem', color: '#aaa' }}>Type</label>
                   <select value={newMaterialType} onChange={(e) => setNewMaterialType(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', background: '#333', color: '#fff', border: '1px solid #444', outline: 'none', marginTop: '4px' }}>
                     <option value="Notes">Notes (Free)</option>
-                    <option value="Quiz">Quiz (Free)</option>
                     <option value="Paper">Paper</option>
                     <option value="Sample Paper">Sample Paper (Paid)</option>
                   </select>
@@ -471,19 +533,19 @@ function App() {
           </div>
         )}
 
-        {/* Admin Review Submissions Modal */}
+        {/* Admin Review Doubts Modal */}
         {activeModal === 'adminDoubts' && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
             <div style={{ background: '#222', padding: '20px', borderRadius: '10px', width: '85%', maxWidth: '380px' }}>
-              <h3 style={{ margin: '0 0 15px 0', color: '#0084ff', fontSize: '1.1rem' }}>Student Doubts</h3>
-              {uploadedFiles.length === 0 ? (
-                <p style={{ fontSize: '0.85rem', color: '#aaa' }}>No student files uploaded yet.</p>
+              <h3 style={{ margin: '0 0 15px 0', color: '#0084ff', fontSize: '1.1rem' }}>Student Doubts Portal</h3>
+              {uploadedDoubts.length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: '#aaa' }}>No student doubts uploaded yet.</p>
               ) : (
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                  {uploadedFiles.map((file, idx) => (
+                  {uploadedDoubts.map((file, idx) => (
                     <div key={idx} style={{ padding: '8px 0', borderBottom: '1px solid #333', fontSize: '0.8rem' }}>
                       <div>📄 <b>{file.name}</b> ({file.size})</div>
-                      <div style={{ color: '#aaa', fontSize: '0.75rem' }}>Class: {file.className} | By: {file.student} at {file.date}</div>
+                      <div style={{ color: '#aaa', fontSize: '0.75rem' }}>Class: {file.className} | Student: {file.student}</div>
                     </div>
                   ))}
                 </div>
@@ -493,12 +555,12 @@ function App() {
           </div>
         )}
 
-        {/* Admin Student Access Management Modal */}
+        {/* Admin Student Access Control Modal */}
         {activeModal === 'adminUsers' && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
             <div style={{ background: '#222', padding: '20px', borderRadius: '10px', width: '85%', maxWidth: '380px' }}>
-              <h3 style={{ margin: '0 0 10px 0', color: '#00c853', fontSize: '1.1rem' }}>Offline Paid Access Control</h3>
-              <p style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '12px' }}>Allow paid access after receiving offline fee:</p>
+              <h3 style={{ margin: '0 0 10px 0', color: '#ab47bc', fontSize: '1.1rem' }}>Paid Access Management</h3>
+              <p style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '12px' }}>Toggle paid status after offline fee collection:</p>
               <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
                 {registeredStudents.map((std, idx) => (
                   <div key={idx} style={{ padding: '10px 0', borderBottom: '1px solid #333', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
