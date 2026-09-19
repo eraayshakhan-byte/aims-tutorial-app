@@ -5,16 +5,16 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // -------------------------------------------------------------
-// 1. FIREBASE CONFIGURATION (FREE TIER)
-// Firebase Console (console.firebase.google.com) se apni keys yahan daalein
+// FIREBASE CONFIGURATION (Screen se copied exact keys)
 // -------------------------------------------------------------
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBCuhS5TRJ8Hw3U0oLY7fzLowwtNVJ4-JI",
+  authDomain: "aims-tutorial-838dd.firebaseapp.com",
+  projectId: "aims-tutorial-838dd",
+  storageBucket: "aims-tutorial-838dd.firebasestorage.app",
+  messagingSenderId: "182619434148",
+  appId: "1:182619434148:web:c902f092f9ecdaa60aca31",
+  measurementId: "G-KBEEE1PXJF"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -26,9 +26,8 @@ export const storage = getStorage(app);
 // MAIN APP COMPONENT
 // -------------------------------------------------------------
 export default function App() {
-  const [activeTab, setActiveTab] = useState('quiz'); // 'quiz', 'pdf', 'admin'
-  
-  // Quiz State
+  const [activeTab, setActiveTab] = useState('quiz');
+
   const [quizData, setQuizData] = useState([
     {
       id: 1,
@@ -50,16 +49,14 @@ export default function App() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState(0);
 
-  // Quiz Option Select Handler
   const handleOptionSelect = (questionId, optionIndex) => {
-    if (isSubmitted) return; // Prevent change after submit
+    if (isSubmitted) return;
     setSelectedAnswers({
       ...selectedAnswers,
       [questionId]: optionIndex
     });
   };
 
-  // Quiz Submit Handler
   const handleQuizSubmit = () => {
     let calculatedScore = 0;
     quizData.forEach((q) => {
@@ -71,7 +68,6 @@ export default function App() {
     setIsSubmitted(true);
   };
 
-  // Quiz Reset Handler
   const handleResetQuiz = () => {
     setSelectedAnswers({});
     setIsSubmitted(false);
@@ -97,9 +93,7 @@ export default function App() {
         </button>
       </div>
 
-      {/* ------------------------------------------------------------- */}
-      {/* LIVE QUIZ ENGINE SECTION */}
-      {/* ------------------------------------------------------------- */}
+      {/* QUIZ SECTION */}
       {activeTab === 'quiz' && (
         <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', maxWidth: '600px', margin: '0 auto', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
           <h2>Class 1th - Articles Quiz (Live)</h2>
@@ -122,13 +116,11 @@ export default function App() {
                   backgroundColor: '#fff'
                 };
 
-                // Selection highlight
                 if (selectedAnswers[q.id] === i) {
                   btnStyle.backgroundColor = '#e2e3e5';
                   btnStyle.borderColor = '#6c757d';
                 }
 
-                // After submit - Green for correct, Red for wrong
                 if (isSubmitted) {
                   if (i === q.correctAnswer) {
                     btnStyle.backgroundColor = '#d4edda';
@@ -152,7 +144,6 @@ export default function App() {
                 );
               })}
 
-              {/* Explanation after submit */}
               {isSubmitted && (
                 <div style={{ fontSize: '13px', color: '#555', marginTop: '5px', background: '#eef', padding: '8px', borderRadius: '4px' }}>
                   <strong>Explanation:</strong> {q.explanation}
@@ -161,7 +152,6 @@ export default function App() {
             </div>
           ))}
 
-          {/* Submit / Result Section */}
           {!isSubmitted ? (
             <button 
               onClick={handleQuizSubmit}
@@ -186,15 +176,10 @@ export default function App() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* PDF VIEWER SECTION */}
-      {/* ------------------------------------------------------------- */}
+      {/* PDF SECTION */}
       {activeTab === 'pdf' && (
         <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', maxWidth: '700px', margin: '0 auto' }}>
           <h2>Study Notes (PDF)</h2>
-          <p>Firebase Storage se link hone ke baad aapki real PDF yahan render hogi:</p>
-          
-          {/* Sample PDF Embed (Free & Built-in browser support) */}
           <iframe 
             src="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" 
             title="PDF Viewer"
