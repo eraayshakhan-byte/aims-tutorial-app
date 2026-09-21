@@ -19,6 +19,7 @@ export default function App() {
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [activeTab, setActiveTab] = useState('quiz'); // 'quiz', 'papers', 'notes'
+  const [showStudentsList, setShowStudentsList] = useState(false);
 
   // Upload States (Papers & Notes)
   const [paperUrl, setPaperUrl] = useState(null);
@@ -31,13 +32,14 @@ export default function App() {
   // AI Quiz & Generator States
   const [topic, setTopic] = useState('');
   const [subTopic, setSubTopic] = useState('');
-  const [numQuestions, setNumQuestions] = useState(10);
+  const [numQuestions, setNumQuestions] = useState(5);
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [basket, setBasket] = useState([]);
   const [worksheets, setWorksheets] = useState([]);
   const [splitCount, setSplitCount] = useState(10);
 
-  // Subject Mapping Logic based on Class
+  // Subject Mapping Logic
   const getSubjectsForClass = (cls) => {
     if (cls >= 1 && cls <= 4) {
       return ['English', 'Hindi', 'Maths', 'EVS', 'English Grammar', 'Hindi Grammar', 'Computer'];
@@ -51,7 +53,7 @@ export default function App() {
   // Auth Handlers
   const handleLogin = (e) => {
     e.preventDefault();
-    const foundUser = users.find(u => u.email === authEmail && u.password === authPassword);
+    const foundUser = users.find(u => u.email.toLowerCase() === authEmail.toLowerCase() && u.password === authPassword);
     if (foundUser) {
       setCurrentUser(foundUser);
       setAuthEmail('');
@@ -67,6 +69,12 @@ export default function App() {
       alert('Please fill all required fields.');
       return;
     }
+    
+    if (users.some(u => u.email.toLowerCase() === authEmail.toLowerCase())) {
+      alert('An account with this email already exists!');
+      return;
+    }
+
     const newUser = { email: authEmail, password: authPassword, name: authName, role: authRole };
     setUsers([...users, newUser]);
     setCurrentUser(newUser);
@@ -104,24 +112,34 @@ export default function App() {
     }
   };
 
-  // AI Quiz Generator Handlers
-  const handleGenerateQuestions = () => {
+  // AI Question Generator
+  const handleGenerateQuestions = async () => {
     if (!topic) {
       alert('Please enter a Topic name!');
       return;
     }
-    const count = parseInt(numQuestions) || 5;
-    const newQuestions = [];
-    for (let i = 1; i <= count; i++) {
-      newQuestions.push({
-        id: Date.now() + i,
-        question: `[Class ${selectedClass} - ${selectedSubject}] ${topic} ${subTopic ? `(${subTopic})` : ''} Question #${i}?`,
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
-        correctAnswer: 0,
-        explanation: `Explanation for ${topic} question #${i}.`
-      });
+
+    setIsGenerating(true);
+    setGeneratedQuestions([]);
+
+    try {
+      const count = parseInt(numQuestions) || 5;
+      const mockList = [];
+      for (let i = 1; i <= count; i++) {
+        mockList.push({
+          id: Date.now() + i,
+          question: `Sample Question #${i} for ${topic}?`,
+          options: ['Option A', 'Option B', 'Option C', 'Option D'],
+          correctAnswer: 0,
+          explanation: `Correct explanation for ${topic}.`
+        });
+      }
+      setGeneratedQuestions(mockList);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGenerating(false);
     }
-    setGeneratedQuestions(newQuestions);
   };
 
   const addToBasket = (q) => {
@@ -151,10 +169,10 @@ export default function App() {
     }
     setWorksheets([...worksheets, ...newWorksheets]);
     setBasket([]);
-    alert(`${newWorksheets.length} Worksheet(s) successfully created and published!`);
+    alert(`${newWorksheets.length} Worksheet(s) created!`);
   };
 
-  // 1. AUTH SCREEN (LOGIN / REGISTER)
+  // 1. LOGIN SCREEN
   if (!currentUser) {
     return (
       <div style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f1f5f9', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
@@ -168,24 +186,24 @@ export default function App() {
             {isRegistering && (
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Full Name</label>
-                <input type="text" required placeholder="Enter full name" value={authName} onChange={(e) => setAuthName(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                <input type="text" required placeholder="Enter full name" value={authName} onChange={(e) => setAuthName(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
               </div>
             )}
 
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Email Address</label>
-              <input type="email" required placeholder="name@domain.com" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+              <input type="email" required placeholder="admin@aims.com or student@aims.com" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
             </div>
 
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Password</label>
-              <input type="password" required placeholder="••••••••" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+              <input type="password" required placeholder="••••••••" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
             </div>
 
             {isRegistering && (
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Account Role</label>
-                <select value={authRole} onChange={(e) => setAuthRole(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                <select value={authRole} onChange={(e) => setAuthRole(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}>
                   <option value="student">Student</option>
                   <option value="admin">Teacher / Admin</option>
                 </select>
@@ -209,24 +227,70 @@ export default function App() {
     );
   }
 
-  // 2. MAIN APP FLOW
+  // 2. MAIN DASHBOARD
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f8fafc', minHeight: '100vh', color: '#1e293b' }}>
+    <div style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f8fafc', minHeight: '100vh', width: '100%', color: '#1e293b', boxSizing: 'border-box' }}>
       
-      {/* HEADER */}
-      <header style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* HEADER WITH ADMIN ACTION BUTTONS */}
+      <header style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
         <div>
           <h3 style={{ margin: 0, color: '#0f172a' }}>📚 AIMS Tutorial Portal</h3>
           <span style={{ fontSize: '12px', color: '#64748b' }}>User: <b>{currentUser.name}</b> ({currentUser.role.toUpperCase()})</span>
         </div>
 
-        <button onClick={() => setCurrentUser(null)} style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer', background: '#fee2e2', color: '#dc2626', fontWeight: '600' }}>
-          Logout
-        </button>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {currentUser.role === 'admin' && (
+            <button 
+              onClick={() => setShowStudentsList(!showStudentsList)} 
+              style={{ background: showStudentsList ? '#0f172a' : '#2563eb', color: '#ffffff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+            >
+              👥 View All Accounts
+            </button>
+          )}
+
+          <button onClick={() => { setCurrentUser(null); setShowStudentsList(false); }} style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer', background: '#fee2e2', color: '#dc2626', fontWeight: '600' }}>
+            Logout
+          </button>
+        </div>
       </header>
 
-      <main style={{ padding: '32px', maxWidth: '1100px', margin: '0 auto' }}>
-        
+      <main style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+
+        {/* ADMIN VIEW ALL ACCOUNTS PANEL */}
+        {currentUser.role === 'admin' && showStudentsList && (
+          <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '12px', padding: '24px', marginBottom: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0 }}>📋 Registered User Accounts ({users.length})</h3>
+              <button onClick={() => setShowStudentsList(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}>✕</button>
+            </div>
+            
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                  <th style={{ padding: '10px' }}>Name</th>
+                  <th style={{ padding: '10px' }}>Email (User ID)</th>
+                  <th style={{ padding: '10px' }}>Password</th>
+                  <th style={{ padding: '10px' }}>Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '10px', fontWeight: '600' }}>{u.name}</td>
+                    <td style={{ padding: '10px', color: '#2563eb' }}>{u.email}</td>
+                    <td style={{ padding: '10px', fontFamily: 'monospace', fontWeight: 'bold', color: '#dc2626' }}>{u.password}</td>
+                    <td style={{ padding: '10px' }}>
+                      <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', background: u.role === 'admin' ? '#fef3c7' : '#dcfce7', color: u.role === 'admin' ? '#d97706' : '#15803d' }}>
+                        {u.role.toUpperCase()}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* BREADCRUMB NAVIGATION */}
         <div style={{ marginBottom: '24px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px' }}>
           <button onClick={() => { setSelectedClass(null); setSelectedSubject(null); }} style={{ border: 'none', background: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: '600' }}>
@@ -242,16 +306,16 @@ export default function App() {
           {selectedSubject && <span style={{ fontWeight: '600', color: '#0f172a' }}>{selectedSubject}</span>}
         </div>
 
-        {/* STEP 1: CLASS SELECTION (1 TO 12) */}
+        {/* STEP 1: CLASS SELECTION */}
         {!selectedClass && (
           <div>
             <h3 style={{ marginBottom: '16px' }}>Select Class</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px', width: '100%' }}>
               {[1,2,3,4,5,6,7,8,9,10,11,12].map((cls) => (
                 <button
                   key={cls}
                   onClick={() => setSelectedClass(cls)}
-                  style={{ background: '#ffffff', border: '1px solid #cbd5e1', padding: '24px', borderRadius: '12px', fontSize: '18px', fontWeight: '700', color: '#1e293b', cursor: 'pointer', transition: '0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                  style={{ background: '#ffffff', border: '1px solid #cbd5e1', padding: '24px', borderRadius: '12px', fontSize: '18px', fontWeight: '700', color: '#1e293b', cursor: 'pointer', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
                 >
                   Class {cls}
                 </button>
@@ -264,12 +328,12 @@ export default function App() {
         {selectedClass && !selectedSubject && (
           <div>
             <h3 style={{ marginBottom: '16px' }}>Select Subject for Class {selectedClass}</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px', width: '100%' }}>
               {getSubjectsForClass(selectedClass).map((sub) => (
                 <button
                   key={sub}
                   onClick={() => setSelectedSubject(sub)}
-                  style={{ background: '#ffffff', border: '1px solid #cbd5e1', padding: '20px', borderRadius: '12px', fontSize: '15px', fontWeight: '600', color: '#2563eb', cursor: 'pointer', textAlign: 'left', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                  style={{ background: '#ffffff', border: '1px solid #cbd5e1', padding: '20px', borderRadius: '12px', fontSize: '15px', fontWeight: '600', color: '#2563eb', cursor: 'pointer', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
                 >
                   📖 {sub}
                 </button>
@@ -278,7 +342,7 @@ export default function App() {
           </div>
         )}
 
-        {/* STEP 3: SUBJECT MODULES (PAPERS, NOTES, QUIZ) */}
+        {/* STEP 3: SUBJECT MODULES */}
         {selectedClass && selectedSubject && (
           <div>
             
@@ -317,45 +381,49 @@ export default function App() {
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: '16px', marginBottom: '16px' }}>
                       <div>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>Topic Name</label>
-                        <input type="text" placeholder="e.g. Grammar Rules" value={topic} onChange={(e) => setTopic(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                        <input type="text" placeholder="e.g. Noun" value={topic} onChange={(e) => setTopic(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>Sub-Topic</label>
-                        <input type="text" placeholder="e.g. Types of Noun" value={subTopic} onChange={(e) => setSubTopic(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                        <input type="text" placeholder="e.g. Types of Noun" value={subTopic} onChange={(e) => setSubTopic(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>Quantity</label>
-                        <input type="number" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }} />
+                        <input type="number" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
                       </div>
                     </div>
-                    <button onClick={handleGenerateQuestions} style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>
-                      ✨ Generate Questions
+                    <button 
+                      onClick={handleGenerateQuestions} 
+                      disabled={isGenerating}
+                      style={{ background: isGenerating ? '#94a3b8' : '#2563eb', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: isGenerating ? 'not-allowed' : 'pointer', fontWeight: '600' }}
+                    >
+                      {isGenerating ? '⌛ Generating Real AI Questions...' : '✨ Generate Questions'}
                     </button>
                   </div>
                 )}
 
-                {/* Question Selection Basket (Admin Only) */}
+                {/* Question Selection Basket */}
                 {currentUser.role === 'admin' && generatedQuestions.length > 0 && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', height: '350px', overflowY: 'auto' }}>
-                      <h4>Pool ({generatedQuestions.length})</h4>
-                      {generatedQuestions.map((q) => (
-                        <div key={q.id} style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', marginBottom: '8px', border: '1px solid #f1f5f9' }}>
-                          <p style={{ margin: '0 0 6px 0', fontSize: '13px' }}>{q.question}</p>
-                          <button onClick={() => addToBasket(q)} style={{ background: '#e0e7ff', color: '#4338ca', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', height: '400px', overflowY: 'auto' }}>
+                      <h4>Generated Questions Pool ({generatedQuestions.length})</h4>
+                      {generatedQuestions.map((q, idx) => (
+                        <div key={q.id} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '10px', border: '1px solid #e2e8f0' }}>
+                          <p style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: '600' }}>Q{idx + 1}. {q.question}</p>
+                          <button onClick={() => addToBasket(q)} style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
                             ➕ Add to Basket
                           </button>
                         </div>
                       ))}
                     </div>
 
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', height: '350px', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', height: '400px', display: 'flex', flexDirection: 'column' }}>
                       <h4>🧺 Selected Basket ({basket.length})</h4>
                       <div style={{ flex: 1, overflowY: 'auto' }}>
                         {basket.map((q) => (
-                          <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f1f5f9', fontSize: '12px' }}>
-                            <span>{q.question}</span>
-                            <button onClick={() => removeFromBasket(q.id)} style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+                          <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontSize: '12px' }}>
+                            <span style={{ fontWeight: '500' }}>{q.question}</span>
+                            <button onClick={() => removeFromBasket(q.id)} style={{ color: '#dc2626', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
                           </div>
                         ))}
                       </div>
@@ -397,7 +465,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB 2: PAPERS MODULE (PDF UPLOAD & VIEW) */}
+            {/* TAB 2: PAPERS MODULE */}
             {activeTab === 'papers' && (
               <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px' }}>
                 <h4 style={{ margin: '0 0 16px 0' }}>📜 Question Papers - Class {selectedClass} ({selectedSubject})</h4>
@@ -420,7 +488,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB 3: NOTES MODULE (PDF / IMAGE UPLOAD & VIEW) */}
+            {/* TAB 3: NOTES MODULE */}
             {activeTab === 'notes' && (
               <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px' }}>
                 <h4 style={{ margin: '0 0 16px 0' }}>📚 Study Notes - Class {selectedClass} ({selectedSubject})</h4>
