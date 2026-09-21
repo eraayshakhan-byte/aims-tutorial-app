@@ -122,8 +122,6 @@ export default function App() {
     setIsGenerating(true);
     setGeneratedQuestions([]);
 
-    const promptText = `Generate ${numQuestions} multiple-choice questions (MCQs) for Class ${selectedClass} subject "${selectedSubject}". Topic: "${topic}".`;
-
     try {
       const count = parseInt(numQuestions) || 5;
       const mockList = [];
@@ -308,7 +306,7 @@ export default function App() {
           {selectedSubject && <span style={{ fontWeight: '600', color: '#0f172a' }}>{selectedSubject}</span>}
         </div>
 
-        {/* STEP 1: CLASS SELECTION (FIXED GRID FOR ALL 12 CLASSES) */}
+        {/* STEP 1: CLASS SELECTION */}
         {!selectedClass && (
           <div>
             <h3 style={{ marginBottom: '16px' }}>Select Class</h3>
