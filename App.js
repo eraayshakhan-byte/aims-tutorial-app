@@ -18,8 +18,15 @@ export default function App() {
   // App Flow Navigation
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
-  const [activeTab, setActiveTab] = useState('quiz'); // 'quiz', 'papers', 'notes'
+  const [activeTab, setActiveTab] = useState('quiz'); // 'quiz', 'papers', 'notes', 'attendance'
   const [showStudentsList, setShowStudentsList] = useState(false);
+
+  // Attendance State
+  const [attendanceRecords, setAttendanceRecords] = useState({
+    'student@aims.com': { present: 18, total: 20 }
+  });
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dailyStatus, setDailyStatus] = useState({});
 
   // Upload States (Papers & Notes)
   const [paperUrl, setPaperUrl] = useState(null);
@@ -77,6 +84,15 @@ export default function App() {
 
     const newUser = { email: authEmail, password: authPassword, name: authName, role: authRole };
     setUsers([...users, newUser]);
+    
+    // Initialize Attendance record for new student
+    if (authRole === 'student') {
+      setAttendanceRecords(prev => ({
+        ...prev,
+        [authEmail]: { present: 0, total: 0 }
+      }));
+    }
+
     setCurrentUser(newUser);
     setAuthEmail('');
     setAuthPassword('');
@@ -172,50 +188,73 @@ export default function App() {
     alert(`${newWorksheets.length} Worksheet(s) created!`);
   };
 
-  // 1. LOGIN SCREEN
+  // Attendance Handlers
+  const handleAttendanceChange = (email, status) => {
+    setDailyStatus(prev => ({ ...prev, [email]: status }));
+  };
+
+  const saveAttendance = () => {
+    const updatedRecords = { ...attendanceRecords };
+    const students = users.filter(u => u.role === 'student');
+
+    students.forEach(student => {
+      const status = dailyStatus[student.email] || 'present';
+      const prev = updatedRecords[student.email] || { present: 0, total: 0 };
+      
+      updatedRecords[student.email] = {
+        present: prev.present + (status === 'present' ? 1 : 0),
+        total: prev.total + 1
+      };
+    });
+
+    setAttendanceRecords(updatedRecords);
+    alert(`Attendance saved for ${attendanceDate}!`);
+  };
+
+  // 1. LOGIN / REGISTER SCREEN (CENTERED)
   if (!currentUser) {
     return (
-      <div style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f1f5f9', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '400px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ textAlign: 'center', margin: '0 0 8px 0', color: '#0f172a' }}>📚 AIMS Tutorial Portal</h2>
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
-            {isRegistering ? 'New Student Registration' : 'Sign in to your account'}
+      <div style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f1f5f9', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
+        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '36px', borderRadius: '16px', width: '100%', maxWidth: '420px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', margin: 'auto' }}>
+          <h2 style={{ textAlign: 'center', margin: '0 0 8px 0', color: '#0f172a', fontSize: '24px' }}>📚 AIMS Tutorial Portal</h2>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: '14px', marginBottom: '28px' }}>
+            {isRegistering ? 'New Student Registration' : 'Sign in to access your dashboard'}
           </p>
 
           <form onSubmit={isRegistering ? handleRegister : handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {isRegistering && (
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Full Name</label>
-                <input type="text" required placeholder="Enter full name" value={authName} onChange={(e) => setAuthName(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Full Name</label>
+                <input type="text" required placeholder="Enter full name" value={authName} onChange={(e) => setAuthName(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box' }} />
               </div>
             )}
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Email Address</label>
-              <input type="email" required placeholder="admin@aims.com or student@aims.com" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Email Address</label>
+              <input type="email" required placeholder="admin@aims.com or student@aims.com" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box' }} />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Password</label>
-              <input type="password" required placeholder="••••••••" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }} />
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Password</label>
+              <input type="password" required placeholder="••••••••" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box' }} />
             </div>
 
             {isRegistering && (
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Account Role</label>
-                <select value={authRole} onChange={(e) => setAuthRole(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', boxSizing: 'border-box' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Account Role</label>
+                <select value={authRole} onChange={(e) => setAuthRole(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box' }}>
                   <option value="student">Student</option>
                   <option value="admin">Teacher / Admin</option>
                 </select>
               </div>
             )}
 
-            <button type="submit" style={{ background: '#2563eb', color: '#fff', padding: '12px', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', marginTop: '8px' }}>
+            <button type="submit" style={{ background: '#2563eb', color: '#fff', padding: '12px', border: 'none', borderRadius: '8px', fontWeight: '600', fontSize: '15px', cursor: 'pointer', marginTop: '8px' }}>
               {isRegistering ? 'Register Account' : 'Sign In'}
             </button>
           </form>
 
-          <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '13px' }}>
+          <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '13px', color: '#475569' }}>
             {isRegistering ? (
               <span>Already have an account? <button onClick={() => setIsRegistering(false)} style={{ color: '#2563eb', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '600' }}>Sign In</button></span>
             ) : (
@@ -231,7 +270,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f8fafc', minHeight: '100vh', width: '100%', color: '#1e293b', boxSizing: 'border-box' }}>
       
-      {/* HEADER WITH ADMIN ACTION BUTTONS */}
+      {/* HEADER */}
       <header style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
         <div>
           <h3 style={{ margin: 0, color: '#0f172a' }}>📚 AIMS Tutorial Portal</h3>
@@ -347,7 +386,7 @@ export default function App() {
           <div>
             
             {/* TABS HEADER */}
-            <div style={{ display: 'flex', gap: '12px', borderBottom: '2px solid #e2e8f0', paddingBottom: '12px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '12px', borderBottom: '2px solid #e2e8f0', paddingBottom: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
               <button 
                 onClick={() => setActiveTab('quiz')}
                 style={{ padding: '10px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', background: activeTab === 'quiz' ? '#2563eb' : '#e2e8f0', color: activeTab === 'quiz' ? '#fff' : '#475569' }}
@@ -367,6 +406,13 @@ export default function App() {
                 style={{ padding: '10px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', background: activeTab === 'notes' ? '#2563eb' : '#e2e8f0', color: activeTab === 'notes' ? '#fff' : '#475569' }}
               >
                 📚 Notes (PDF/Image)
+              </button>
+
+              <button 
+                onClick={() => setActiveTab('attendance')}
+                style={{ padding: '10px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', background: activeTab === 'attendance' ? '#2563eb' : '#e2e8f0', color: activeTab === 'attendance' ? '#fff' : '#475569' }}
+              >
+                📅 Attendance Calculator
               </button>
             </div>
 
@@ -397,7 +443,7 @@ export default function App() {
                       disabled={isGenerating}
                       style={{ background: isGenerating ? '#94a3b8' : '#2563eb', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: isGenerating ? 'not-allowed' : 'pointer', fontWeight: '600' }}
                     >
-                      {isGenerating ? '⌛ Generating Real AI Questions...' : '✨ Generate Questions'}
+                      {isGenerating ? '⌛ Generating Questions...' : '✨ Generate Questions'}
                     </button>
                   </div>
                 )}
@@ -513,6 +559,78 @@ export default function App() {
                   </div>
                 ) : (
                   <p style={{ color: '#64748b', textAlign: 'center', margin: '40px 0' }}>No Study Notes uploaded for this subject yet.</p>
+                )}
+              </div>
+            )}
+
+            {/* TAB 4: ATTENDANCE & CALCULATOR MODULE */}
+            {activeTab === 'attendance' && (
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px' }}>
+                <h4 style={{ margin: '0 0 16px 0' }}>📅 Class {selectedClass} - Student Attendance & Percentage Calculator</h4>
+
+                {currentUser.role === 'admin' ? (
+                  <div>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '20px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <label style={{ fontWeight: '600', fontSize: '14px' }}>Select Attendance Date:</label>
+                      <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                    </div>
+
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
+                          <th style={{ padding: '10px' }}>Student Name</th>
+                          <th style={{ padding: '10px' }}>Email</th>
+                          <th style={{ padding: '10px' }}>Mark Status</th>
+                          <th style={{ padding: '10px' }}>Overall Attendance %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.filter(u => u.role === 'student').map((student) => {
+                          const record = attendanceRecords[student.email] || { present: 0, total: 0 };
+                          const percentage = record.total > 0 ? ((record.present / record.total) * 100).toFixed(1) : '100.0';
+                          return (
+                            <tr key={student.email} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '10px', fontWeight: '600' }}>{student.name}</td>
+                              <td style={{ padding: '10px', color: '#64748b' }}>{student.email}</td>
+                              <td style={{ padding: '10px' }}>
+                                <select 
+                                  value={dailyStatus[student.email] || 'present'} 
+                                  onChange={(e) => handleAttendanceChange(student.email, e.target.value)}
+                                  style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                >
+                                  <option value="present">✅ Present</option>
+                                  <option value="absent">❌ Absent</option>
+                                </select>
+                              </td>
+                              <td style={{ padding: '10px', fontWeight: 'bold', color: parseFloat(percentage) >= 75 ? '#059669' : '#dc2626' }}>
+                                {percentage}% ({record.present}/{record.total} days)
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+
+                    <button onClick={saveAttendance} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                      💾 Save Attendance
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    {(() => {
+                      const record = attendanceRecords[currentUser.email] || { present: 0, total: 0 };
+                      const percentage = record.total > 0 ? ((record.present / record.total) * 100).toFixed(1) : '100.0';
+                      return (
+                        <div style={{ textAlign: 'center', padding: '30px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <h3>Your Attendance Percentage</h3>
+                          <div style={{ fontSize: '42px', fontWeight: '800', color: parseFloat(percentage) >= 75 ? '#059669' : '#dc2626', margin: '16px 0' }}>
+                            {percentage}%
+                          </div>
+                          <p style={{ color: '#64748b' }}>Total Attended: <b>{record.present}</b> / <b>{record.total}</b> Days</p>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 )}
               </div>
             )}
