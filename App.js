@@ -169,17 +169,35 @@ export default function App() {
   };
 
   // 📄 DOWNLOAD WORKSHEET AS PDF
+ // 📄 DOWNLOAD / PRINT WORKSHEET AS PDF
   const downloadPDF = (wsId) => {
-    const element = document.getElementById(`pdf-content-${wsId}`);
-    const opt = {
-      margin:       10,
-      filename:     `Worksheet_${wsId}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+    const printContent = document.getElementById(`pdf-content-${wsId}`).innerHTML;
+    const printWindow = window.open('', '', 'height=700,width=900');
 
-    html2pdf().set(opt).from(element).save();
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Worksheet</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #000; background: #fff; }
+            h2, h4 { text-align: center; margin: 5px 0; }
+            hr { border: 0.5px solid #ccc; margin-bottom: 20px; }
+            .question-box { margin-bottom: 16px; page-break-inside: avoid; }
+            .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding-left: 10px; }
+          </style>
+        </head>
+        <body>
+          ${printContent}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
   };
 
   // ---------------- LOGIN / REGISTER UI ----------------
