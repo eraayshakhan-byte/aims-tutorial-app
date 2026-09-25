@@ -1,375 +1,393 @@
-import React, { useState } from 'react';
-import html2pdf from 'html2pdf.js';
+import React, { useState, useEffect } from "react";
 
-// 🔑 Gemini API Key
-const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; 
+// ---------------- Theme ----------------
+const C = {
+  bg: "#0f172a",
+  card: "#1e293b",
+  border: "#334155",
+  accent: "#38bdf8",
+  ok: "#10b981",
+  bad: "#991b1b",
+  text: "#e2e8f0",
+  muted: "#94a3b8",
+};
 
-export default function App() {
-  // Auth States
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [users, setUsers] = useState([
-    { email: 'admin@aims.com', password: '123', name: 'Admin Teacher', role: 'admin', studentClass: 'All' },
-    { email: 'student@aims.com', password: '123', name: 'Rahul Sharma', role: 'student', studentClass: '10' }
-  ]);
+const s = {
+  app: { maxWidth: 900, margin: "0 auto", padding: 16, background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif" },
+  card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 12 },
+  input: { width: "100%", background: "#0b1222", border: `1px solid ${C.border}`, color: C.text, padding: 10, borderRadius: 8, marginBottom: 10, fontSize: 15, boxSizing: "border-box" },
+  button: { background: C.accent, color: "#04121c", border: "none", padding: "10px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 14 },
+  secondary: { background: "transparent", border: `1px solid ${C.border}`, color: C.text, padding: "10px 16px", borderRadius: 8, cursor: "pointer", fontSize: 14 },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(90px,1fr))", gap: 10 },
+  tile: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 8px", textAlign: "center", cursor: "pointer" },
+  tabs: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 },
+  tab: (active) => ({ padding: "8px 14px", borderRadius: 20, border: `1px solid ${active ? C.accent : C.border}`, background: active ? C.accent : "transparent", color: active ? "#04121c" : C.text, cursor: "pointer", fontSize: 13 }),
+  opt: (state) => ({
+    display: "block", width: "100%", textAlign: "left", padding: 10, borderRadius: 8, marginBottom: 8, cursor: "pointer",
+    background: state === "correct" ? "#062b20" : state === "wrong" ? "#3a0f0f" : state === "selected" ? "#0c2433" : "#0b1222",
+    border: `1px solid ${state === "correct" ? C.ok : state === "wrong" ? C.bad : state === "selected" ? C.accent : C.border}`,
+    color: C.text,
+  }),
+  badge: (ok) => ({ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 12, marginLeft: 6, background: ok ? C.ok : C.bad, color: ok ? "#04120c" : "#fff" }),
+  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  muted: { color: C.muted, fontSize: 13 },
+  placeholder: { padding: "30px 10px", textAlign: "center", color: C.muted },
+};
 
-  // Auth Inputs
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authName, setAuthName] = useState('');
-  const [authRole, setAuthRole] = useState('student');
-  const [authClass, setAuthClass] = useState('1');
+// ---------------- Helpers ----------------
+const LS = {
+  get: (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
 
-  // Navigation States
-  const [selectedClass, setSelectedClass] = useState(null);
-  const [selectedSubject, setSelectedSubject] = useState(null);
+const MOCK_USERS = [
+  { email: "admin@aims.com", pass: "123", role: "admin", name: "Admin" },
+  { email: "student@aims.com", pass: "123", role: "student", name: "Student", class: "10", subject: "Maths" },
+];
 
-  // Generator States
-  const [topic, setTopic] = useState('');
-  const [subTopic, setSubTopic] = useState('');
-  const [numQuestions, setNumQuestions] = useState(5);
-  const [generatedQuestions, setGeneratedQuestions] = useState([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [basket, setBasket] = useState([]);
-  const [worksheets, setWorksheets] = useState([]);
+const CLASSES = Array.from({ length: 12 }, (_, i) => String(i + 1));
+function subjectsFor(cls) {
+  const n = parseInt(cls, 10);
+  if (n >= 11) return ["Informatics Practices", "Computer Science", "Physics", "Chemistry", "Maths"];
+  if (n >= 9) return ["Science", "Maths", "Social Science", "English", "Hindi"];
+  return ["EVS", "Maths", "English", "Hindi"];
+}
 
-  // Class Subject Mapping
-  const getSubjectsForClass = (cls) => {
-    if (cls >= 1 && cls <= 4) {
-      return ['English', 'Hindi', 'Maths', 'EVS', 'English Grammar', 'Hindi Grammar', 'Computer'];
-    } else if (cls >= 5 && cls <= 10) {
-      return ['English', 'Hindi', 'Science', 'So. Science', 'Maths', 'Sanskrit', 'English Grammar', 'Hindi Grammar', 'Computer'];
-    } else {
-      return ['English', 'Physics', 'Chemistry', 'Maths', 'Biology', 'Accountancy', 'Economics'];
+function parseQuiz(raw) {
+  const lines = raw.split("\n").map((l) => l.trim()).filter((l) => l.length);
+  const questions = [];
+  let cur = null;
+  const qRe = /^(?:Q\.?\s*\d+[.):]?|\d+[.)])\s*(.*)/i;
+  const optRe = /^([A-D])[.)]\s*(.*)/i;
+  const ansRe = /^(?:Answer|Ans)\s*[:\-]?\s*([A-D])/i;
+  lines.forEach((line) => {
+    let m;
+    if ((m = line.match(qRe))) {
+      cur = { text: m[1], options: {}, answer: null };
+      questions.push(cur);
+    } else if (cur && (m = line.match(optRe))) {
+      cur.options[m[1].toUpperCase()] = m[2];
+    } else if (cur && (m = line.match(ansRe))) {
+      cur.answer = m[1].toUpperCase();
+    } else if (cur) {
+      cur.text += " " + line;
     }
+  });
+  return questions.filter((q) => q.text && Object.keys(q.options).length >= 2 && q.answer);
+}
+
+// ---------------- Login ----------------
+function LoginView({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState("");
+  const submit = () => {
+    const u = MOCK_USERS.find((u) => u.email === email.trim() && u.pass === pass.trim());
+    if (!u) { setErr("Invalid credentials"); return; }
+    onLogin(u);
   };
-
-  // Auth Handlers
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const foundUser = users.find(u => u.email.toLowerCase() === authEmail.toLowerCase() && u.password === authPassword);
-    if (foundUser) {
-      setCurrentUser(foundUser);
-      setAuthEmail('');
-      setAuthPassword('');
-    } else {
-      alert('Invalid Email or Password!');
-    }
-  };
-
-  const handleRegister = (e) => {
-    e.preventDefault();
-    if (!authEmail || !authPassword || !authName) {
-      alert('Please fill all required fields.');
-      return;
-    }
-    const newUser = { 
-      email: authEmail, 
-      password: authPassword, 
-      name: authName, 
-      role: authRole,
-      studentClass: authRole === 'student' ? authClass : 'All'
-    };
-    setUsers([...users, newUser]);
-    setCurrentUser(newUser);
-    setAuthEmail('');
-    setAuthPassword('');
-    setAuthName('');
-  };
-
-  // 🤖 GEMINI API QUESTION GENERATION
-  const handleGenerateQuestions = async () => {
-    if (!topic) {
-      alert('Please enter a Topic name!');
-      return;
-    }
-
-    if (GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE" || !GEMINI_API_KEY) {
-      alert("⚠️ Please add your Gemini API Key in the code first!");
-      return;
-    }
-
-    setIsGenerating(true);
-
-    const promptText = `Generate exactly ${numQuestions} multiple choice questions for Class ${selectedClass}${selectedSubject} on Topic: "${topic}" and Sub-Topic: "${subTopic || 'General'}".
-    Return ONLY a raw JSON array of objects without any markdown formatting or \`\`\`json wrappers.
-    Structure:
-    [
-      {
-        "question": "string",
-        "options": ["opt1", "opt2", "opt3", "opt4"],
-        "correctAnswer": 0
-      }
-    ]`;
-
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }]
-        })
-      });
-
-      const data = await response.json();
-      let rawText = data.candidates[0].content.parts[0].text;
-      
-      // Clean JSON formatting if Gemini adds markdown tags
-      rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsedQuestions = JSON.parse(rawText);
-
-      const formatted = parsedQuestions.map((q, idx) => ({
-        id: Date.now() + idx,
-        ...q
-      }));
-
-      setGeneratedQuestions(formatted);
-    } catch (err) {
-      console.error(err);
-      alert('Error generating questions with Gemini API. Please check your API key.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Basket & Delete Handlers
-  const addToBasket = (q) => {
-    if (!basket.some(item => item.id === q.id)) {
-      setBasket([...basket, q]);
-    }
-  };
-
-  const removeFromBasket = (id) => {
-    setBasket(basket.filter(q => q.id !== id));
-  };
-
-  const deleteGeneratedQuestion = (id) => {
-    setGeneratedQuestions(generatedQuestions.filter(q => q.id !== id));
-  };
-
-  const deleteWorksheet = (id) => {
-    if (window.confirm("Are you sure you want to delete this worksheet?")) {
-      setWorksheets(worksheets.filter(ws => ws.id !== id));
-    }
-  };
-
-  const handleCreateWorksheet = () => {
-    if (basket.length === 0) {
-      alert('Please add questions to basket first.');
-      return;
-    }
-    const newWs = {
-      id: Date.now(),
-      title: `Class ${selectedClass} - ${selectedSubject} (${topic || 'General'})`,
-      questions: [...basket]
-    };
-    setWorksheets([...worksheets, newWs]);
-    setBasket([]);
-    alert('Worksheet Created Successfully!');
-  };
-
-  // 📄 DOWNLOAD WORKSHEET AS PDF
- // 📄 DOWNLOAD / PRINT WORKSHEET AS PDF
-  const downloadPDF = (wsId) => {
-    const printContent = document.getElementById(`pdf-content-${wsId}`).innerHTML;
-    const printWindow = window.open('', '', 'height=700,width=900');
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Worksheet</title>
-          <style>
-            body { font-family: sans-serif; padding: 20px; color: #000; background: #fff; }
-            h2, h4 { text-align: center; margin: 5px 0; }
-            hr { border: 0.5px solid #ccc; margin-bottom: 20px; }
-            .question-box { margin-bottom: 16px; page-break-inside: avoid; }
-            .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding-left: 10px; }
-          </style>
-        </head>
-        <body>
-          ${printContent}
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
-  };
-
-  // ---------------- LOGIN / REGISTER UI ----------------
-  if (!currentUser) {
-    return (
-      <div style={{ fontFamily: 'sans-serif', backgroundColor: '#0f172a', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff' }}>
-        <div style={{ background: '#1e293b', border: '1px solid #334155', padding: '30px', borderRadius: '12px', width: '380px' }}>
-          <h2 style={{ textAlign: 'center', color: '#38bdf8' }}>📚 AIMS Portal</h2>
-          <form onSubmit={isRegistering ? handleRegister : handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
-            {isRegistering && (
-              <input type="text" required placeholder="Full Name" value={authName} onChange={(e) => setAuthName(e.target.value)} style={{ padding: '10px', background: '#0f172a', border: '1px solid #475569', borderRadius: '6px', color: '#fff' }} />
-            )}
-            <input type="email" required placeholder="Email Address" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} style={{ padding: '10px', background: '#0f172a', border: '1px solid #475569', borderRadius: '6px', color: '#fff' }} />
-            <input type="password" required placeholder="Password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} style={{ padding: '10px', background: '#0f172a', border: '1px solid #475569', borderRadius: '6px', color: '#fff' }} />
-            
-            {isRegistering && (
-              <select value={authRole} onChange={(e) => setAuthRole(e.target.value)} style={{ padding: '10px', background: '#0f172a', border: '1px solid #475569', borderRadius: '6px', color: '#fff' }}>
-                <option value="student">Student</option>
-                <option value="admin">Teacher / Admin</option>
-              </select>
-            )}
-
-            <button type="submit" style={{ background: '#0284c7', color: '#fff', padding: '10px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-              {isRegistering ? 'Register' : 'Sign In'}
-            </button>
-          </form>
-          <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px' }}>
-            <button onClick={() => setIsRegistering(!isRegistering)} style={{ color: '#38bdf8', border: 'none', background: 'none', cursor: 'pointer' }}>
-              {isRegistering ? 'Already have an account? Sign In' : "New User? Create Account"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ---------------- MAIN DASHBOARD UI ----------------
   return (
-    <div style={{ fontFamily: 'sans-serif', backgroundColor: '#0f172a', minHeight: '100vh', color: '#fff', padding: '20px' }}>
-      
-      {/* Header */}
-      <header style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #334155', paddingBottom: '16px', marginBottom: '20px' }}>
-        <h3 style={{ color: '#38bdf8', margin: 0 }}>📚 AIMS Portal ({currentUser.name})</h3>
-        <button onClick={() => setCurrentUser(null)} style={{ background: '#991b1b', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>Logout</button>
-      </header>
+    <div style={{ maxWidth: 380, margin: "60px auto", padding: "0 16px" }}>
+      <div style={s.card}>
+        <h2>AIMS Login</h2>
+        <p style={s.muted}>Admin: admin@aims.com / 123 · Student: student@aims.com / 123</p>
+        <input style={s.input} placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input style={s.input} placeholder="Password" type="password" value={pass} onChange={(e) => setPass(e.target.value)} />
+        {err && <p style={{ color: "#f87171", fontSize: 13 }}>{err}</p>}
+        <button style={s.button} onClick={submit}>Log In</button>
+      </div>
+    </div>
+  );
+}
 
-      {/* Class Selection */}
-      {!selectedClass && (
-        <div>
-          <h3>Select Class</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '16px' }}>
-            {[1,2,3,4,5,6,7,8,9,10,11,12].map(cls => (
-              <button key={cls} onClick={() => setSelectedClass(cls)} style={{ background: '#1e293b', border: '1px solid #38bdf8', padding: '20px', borderRadius: '8px', color: '#38bdf8', fontSize: '18px', cursor: 'pointer' }}>
-                Class {cls}
+// ---------------- Top bar ----------------
+function TopBar({ session, onLogout }) {
+  return (
+    <div style={s.topbar}>
+      <div><strong>AIMS</strong> <span style={s.muted}>· {session.name} ({session.role})</span></div>
+      <button style={s.secondary} onClick={onLogout}>Logout</button>
+    </div>
+  );
+}
+
+// ---------------- Class / Subject grids ----------------
+function ClassGrid({ onPick }) {
+  return (
+    <div>
+      <h2>Select Class</h2>
+      <div style={s.grid}>
+        {CLASSES.map((c) => (
+          <div key={c} style={s.tile} onClick={() => onPick(c)}>Class {c}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SubjectGrid({ cls, onBack, onPick }) {
+  return (
+    <div>
+      <button style={s.secondary} onClick={onBack}>← Back</button>
+      <h2>Class {cls} — Select Subject</h2>
+      <div style={s.grid}>
+        {subjectsFor(cls).map((sub) => (
+          <div key={sub} style={s.tile} onClick={() => onPick(sub)}>{sub}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Quiz: Create (Admin) ----------------
+function CreateQuizTab({ cls, subject }) {
+  const [raw, setRaw] = useState("");
+  const [title, setTitle] = useState("");
+  const [parsed, setParsed] = useState([]);
+  const [msg, setMsg] = useState("");
+
+  const doParse = () => {
+    const p = parseQuiz(raw);
+    setParsed(p);
+    setMsg(`${p.length} question(s) parsed. Answer key: ${p.map((q) => q.answer).join(", ")}`);
+  };
+
+  const publish = () => {
+    if (!parsed.length) { alert("Parse the text first."); return; }
+    if (!title.trim()) { alert("Enter a title."); return; }
+    const all = LS.get("aims_worksheets", []);
+    all.push({ id: Date.now(), cls, subject, title: title.trim(), questions: parsed });
+    LS.set("aims_worksheets", all);
+    alert("Worksheet published!");
+    setRaw(""); setTitle(""); setParsed([]); setMsg("");
+  };
+
+  return (
+    <div style={s.card}>
+      <h3>Paste Gemini Q&A Text</h3>
+      <textarea
+        style={{ ...s.input, minHeight: 180 }}
+        placeholder={"Q1. What is...\nA) ...\nB) ...\nC) ...\nD) ...\nAnswer: B"}
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+      />
+      <input style={s.input} placeholder="Worksheet Title / Topic" value={title} onChange={(e) => setTitle(e.target.value)} />
+      {msg && <p style={s.muted}>{msg}</p>}
+      <button style={s.secondary} onClick={doParse}>Preview / Parse</button>
+      <button style={{ ...s.button, marginLeft: 8 }} onClick={publish}>Publish Worksheet</button>
+    </div>
+  );
+}
+
+// ---------------- Quiz: Take (Student/Admin preview) ----------------
+function TakeQuiz({ quiz, session, onBack }) {
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  return (
+    <div>
+      <button style={s.secondary} onClick={onBack}>← All Quizzes</button>
+      <h3>{quiz.title}</h3>
+      {quiz.questions.map((q, i) => (
+        <div key={i} style={s.card}>
+          <p>{i + 1}. {q.text}</p>
+          {Object.entries(q.options).map(([k, v]) => {
+            const selected = answers[i] === k;
+            let st = selected ? "selected" : "default";
+            if (submitted) st = k === q.answer ? "correct" : selected ? "wrong" : "default";
+            return (
+              <button
+                key={k}
+                style={s.opt(st)}
+                onClick={() => { if (!submitted) setAnswers({ ...answers, [i]: k }); }}
+              >
+                {k}) {v}
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+      ))}
+      {!submitted ? (
+        <button style={s.button} onClick={() => setSubmitted(true)}>Submit</button>
+      ) : (
+        <div style={s.card}>
+          <h3>Score Card</h3>
+          <p>
+            Correct: {quiz.questions.filter((q, i) => answers[i] === q.answer).length} / {quiz.questions.length}{" "}
+            ({Math.round((100 * quiz.questions.filter((q, i) => answers[i] === q.answer).length) / quiz.questions.length)}%)
+          </p>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Subject Selection */}
-      {selectedClass && !selectedSubject && (
-        <div>
-          <button onClick={() => setSelectedClass(null)} style={{ background: '#334155', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', marginBottom: '16px', cursor: 'pointer' }}>← Back to Classes</button>
-          <h3>Class {selectedClass} - Select Subject</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
-            {getSubjectsForClass(selectedClass).map(sub => (
-              <button key={sub} onClick={() => setSelectedSubject(sub)} style={{ background: '#1e293b', border: '1px solid #334155', padding: '16px', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>
-                {sub}
-              </button>
-            ))}
-          </div>
+function QuizzesTab({ cls, subject, session }) {
+  const [active, setActive] = useState(null);
+  const all = LS.get("aims_worksheets", []).filter((w) => w.cls === cls && w.subject === subject);
+
+  if (active) return <TakeQuiz quiz={active} session={session} onBack={() => setActive(null)} />;
+
+  if (!all.length) return <div style={{ ...s.card, ...s.placeholder }}>No quizzes published yet for this class/subject.</div>;
+
+  return (
+    <div>
+      {all.map((w) => (
+        <div key={w.id} style={s.card}>
+          <h3>{w.title}</h3>
+          <p style={s.muted}>{w.questions.length} questions</p>
+          <button style={s.button} onClick={() => setActive(w)}>Take Quiz</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------- Attendance ----------------
+function AttendanceTab({ cls, subject, session }) {
+  const key = `${cls}|${subject}`;
+  const [store, setStore] = useState(LS.get("aims_attendance", {}));
+  const [name, setName] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+  const records = store[key] || [];
+
+  const mark = (status) => {
+    if (!name.trim()) { alert("Enter a student name."); return; }
+    const all = LS.get("aims_attendance", {});
+    const list = all[key] || [];
+    const idx = list.findIndex((r) => r.name === name.trim() && r.date === today);
+    if (idx >= 0) list[idx].status = status; else list.push({ name: name.trim(), date: today, status });
+    all[key] = list;
+    LS.set("aims_attendance", all);
+    setStore({ ...all });
+  };
+
+  const visible = session.role === "admin" ? records : records.filter((r) => r.name.toLowerCase() === String(session.name).toLowerCase());
+
+  return (
+    <div>
+      {session.role === "admin" && (
+        <div style={s.card}>
+          <h3>Mark Attendance — {today}</h3>
+          <input style={s.input} placeholder="Student name" value={name} onChange={(e) => setName(e.target.value)} />
+          <button style={s.button} onClick={() => mark("Present")}>Mark Present</button>
+          <button style={{ ...s.secondary, marginLeft: 8 }} onClick={() => mark("Absent")}>Mark Absent</button>
         </div>
       )}
+      <div style={s.card}>
+        <h3>Attendance Records</h3>
+        {!visible.length ? (
+          <p style={s.muted}>No records yet.</p>
+        ) : (
+          [...visible].reverse().map((r, i) => (
+            <p key={i}>{r.date} — {r.name} <span style={s.badge(r.status === "Present")}>{r.status}</span></p>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
-      {/* Generator & Worksheet Section */}
-      {selectedClass && selectedSubject && (
-        <div>
-          <button onClick={() => setSelectedSubject(null)} style={{ background: '#334155', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', marginBottom: '16px', cursor: 'pointer' }}>← Back to Subjects</button>
+// ---------------- Fees ----------------
+function FeesTab({ cls, subject, session }) {
+  const key = `${cls}|${subject}`;
+  const [store, setStore] = useState(LS.get("aims_fees", {}));
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [status, setStatus] = useState("Paid");
+  const records = store[key] || [];
 
-          {/* Gemini Generator Panel */}
-          <div style={{ background: '#1e293b', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #334155' }}>
-            <h4 style={{ color: '#38bdf8', marginTop: 0 }}>✨ Gemini AI Question Generator ({selectedSubject})</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: '12px', marginBottom: '16px' }}>
-              <input type="text" placeholder="Topic Name (e.g. Noun)" value={topic} onChange={(e) => setTopic(e.target.value)} style={{ padding: '8px', background: '#0f172a', border: '1px solid #475569', color: '#fff', borderRadius: '4px' }} />
-              <input type="text" placeholder="Sub-Topic (e.g. Types of Noun)" value={subTopic} onChange={(e) => setSubTopic(e.target.value)} style={{ padding: '8px', background: '#0f172a', border: '1px solid #475569', color: '#fff', borderRadius: '4px' }} />
-              <input type="number" min="1" max="20" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} style={{ padding: '8px', background: '#0f172a', border: '1px solid #475569', color: '#fff', borderRadius: '4px' }} />
-            </div>
-            <button onClick={handleGenerateQuestions} disabled={isGenerating} style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-              {isGenerating ? '⌛ Gemini is Generating...' : '✨ Generate Questions'}
-            </button>
-          </div>
+  const add = () => {
+    if (!name.trim() || !amount) { alert("Enter name and amount."); return; }
+    const all = LS.get("aims_fees", {});
+    const list = all[key] || [];
+    list.push({ name: name.trim(), amount, status, date: new Date().toISOString().slice(0, 10) });
+    all[key] = list;
+    LS.set("aims_fees", all);
+    setStore({ ...all });
+    setName(""); setAmount("");
+  };
 
-          {/* Question Pool & Basket Side-by-Side */}
-          {generatedQuestions.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-              
-              {/* Question Pool */}
-              <div style={{ background: '#1e293b', padding: '16px', borderRadius: '8px', maxHeight: '400px', overflowY: 'auto' }}>
-                <h4>Generated Questions ({generatedQuestions.length})</h4>
-                {generatedQuestions.map((q, idx) => (
-                  <div key={q.id} style={{ background: '#0f172a', padding: '12px', borderRadius: '6px', marginBottom: '10px', border: '1px solid #334155' }}>
-                    <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Q{idx + 1}. {q.question}</p>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => addToBasket(q)} style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>➕ Add to Basket</button>
-                      <button onClick={() => deleteGeneratedQuestion(q.id)} style={{ background: '#991b1b', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>🗑️ Delete</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+  const visible = session.role === "admin" ? records : records.filter((r) => r.name.toLowerCase() === String(session.name).toLowerCase());
 
-              {/* Selected Basket */}
-              <div style={{ background: '#1e293b', padding: '16px', borderRadius: '8px', maxHeight: '400px', display: 'flex', flexDirection: 'column' }}>
-                <h4>🧺 Selected Basket ({basket.length})</h4>
-                <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {basket.map(q => (
-                    <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #334155', fontSize: '13px' }}>
-                      <span>{q.question}</span>
-                      <button onClick={() => removeFromBasket(q.id)} style={{ color: '#f87171', background: 'none', border: 'none', cursor: 'pointer' }}>🗑️ Delete</button>
-                    </div>
-                  ))}
-                </div>
-                {basket.length > 0 && (
-                  <button onClick={handleCreateWorksheet} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', marginTop: '12px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    🚀 Create Printable Worksheet
-                  </button>
-                )}
-              </div>
-
-            </div>
-          )}
-
-          {/* Worksheets Output & PDF Generation */}
-          <div>
-            <h3>Generated Worksheets</h3>
-            {worksheets.map(ws => (
-              <div key={ws.id} style={{ background: '#1e293b', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #334155' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h4 style={{ margin: 0, color: '#38bdf8' }}>{ws.title}</h4>
-                  <div>
-                    <button onClick={() => downloadPDF(ws.id)} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', marginRight: '8px' }}>📄 Download PDF</button>
-                    <button onClick={() => deleteWorksheet(ws.id)} style={{ background: '#991b1b', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>🗑️ Delete</button>
-                  </div>
-                </div>
-
-                {/* PDF Content Area */}
-                <div id={`pdf-content-${ws.id}`} style={{ padding: '20px', background: '#ffffff', color: '#000000', borderRadius: '6px' }}>
-                  <h2 style={{ textAlign: 'center', margin: '0 0 10px 0', color: '#000' }}>AIMS TUTORIAL</h2>
-                  <h4 style={{ textAlign: 'center', margin: '0 0 20px 0', color: '#555' }}>{ws.title}</h4>
-                  <hr style={{ borderColor: '#ddd', marginBottom: '20px' }} />
-                  
-                  {ws.questions.map((q, idx) => (
-                    <div key={idx} style={{ marginBottom: '16px' }}>
-                      <p style={{ fontWeight: 'bold', margin: '0 0 6px 0' }}>Q{idx + 1}. {q.question}</p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', paddingLeft: '10px' }}>
-                        {q.options && q.options.map((opt, oIdx) => (
-                          <div key={oIdx} style={{ fontSize: '13px' }}>
-                            ({String.fromCharCode(65 + oIdx)}) {opt}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-              </div>
-            ))}
-          </div>
-
+  return (
+    <div>
+      {session.role === "admin" && (
+        <div style={s.card}>
+          <h3>Add Fee Record</h3>
+          <input style={s.input} placeholder="Student name" value={name} onChange={(e) => setName(e.target.value)} />
+          <input style={s.input} placeholder="Amount (₹)" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <select style={s.input} value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="Paid">Paid</option>
+            <option value="Due">Due</option>
+          </select>
+          <button style={s.button} onClick={add}>Add Record</button>
         </div>
       )}
+      <div style={s.card}>
+        <h3>Fee Records</h3>
+        {!visible.length ? (
+          <p style={s.muted}>No records yet.</p>
+        ) : (
+          [...visible].reverse().map((r, i) => (
+            <p key={i}>{r.date} — {r.name} — ₹{r.amount} <span style={s.badge(r.status === "Paid")}>{r.status}</span></p>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
+// ---------------- Subject Dashboard ----------------
+function SubjectDashboard({ cls, subject, session, onBack }) {
+  const [tab, setTab] = useState("quizzes");
+  const tabList = ["quizzes", ...(session.role === "admin" ? ["create"] : []), "attendance", "fees", "material", "live"];
+  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", attendance: "Attendance", fees: "Fees", material: "Study Material", live: "Live Classes" };
+
+  return (
+    <div>
+      <button style={s.secondary} onClick={onBack}>← Back</button>
+      <h2>Class {cls} · {subject}</h2>
+      <div style={s.tabs}>
+        {tabList.map((t) => (
+          <div key={t} style={s.tab(tab === t)} onClick={() => setTab(t)}>{labels[t]}</div>
+        ))}
+      </div>
+      {tab === "quizzes" && <QuizzesTab cls={cls} subject={subject} session={session} />}
+      {tab === "create" && <CreateQuizTab cls={cls} subject={subject} />}
+      {tab === "attendance" && <AttendanceTab cls={cls} subject={subject} session={session} />}
+      {tab === "fees" && <FeesTab cls={cls} subject={subject} session={session} />}
+      {(tab === "material" || tab === "live") && (
+        <div style={{ ...s.card, ...s.placeholder }}>{labels[tab]} module — coming soon in this panel.</div>
+      )}
+    </div>
+  );
+}
+
+// ---------------- Root App ----------------
+export default function App() {
+  const [session, setSession] = useState(() => LS.get("aims_session", null));
+  const [view, setView] = useState("classes");
+  const [cls, setCls] = useState(null);
+  const [subject, setSubject] = useState(null);
+
+  useEffect(() => { LS.set("aims_session", session); }, [session]);
+
+  const logout = () => { setSession(null); setView("classes"); setCls(null); setSubject(null); };
+
+  if (!session) return <div style={s.app}><LoginView onLogin={setSession} /></div>;
+
+  return (
+    <div style={s.app}>
+      <TopBar session={session} onLogout={logout} />
+      {view === "classes" && (
+        <ClassGrid onPick={(c) => { setCls(c); setView("subjects"); }} />
+      )}
+      {view === "subjects" && (
+        <SubjectGrid cls={cls} onBack={() => setView("classes")} onPick={(sub) => { setSubject(sub); setView("dashboard"); }} />
+      )}
+      {view === "dashboard" && (
+        <SubjectDashboard cls={cls} subject={subject} session={session} onBack={() => setView("subjects")} />
+      )}
     </div>
   );
 }
