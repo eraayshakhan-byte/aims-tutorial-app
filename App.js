@@ -8,6 +8,7 @@ const C = {
   accent: "#38bdf8",
   ok: "#10b981",
   bad: "#991b1b",
+  warn: "#f59e0b",
   text: "#e2e8f0",
   muted: "#94a3b8",
 };
@@ -24,7 +25,7 @@ const s = {
   tabs: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 },
   row: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between" },
   formRow: { display: "flex", flexWrap: "wrap", gap: 10 },
-  formCol: { flex: "1 1 180px", minWidth: 140 },
+  formCol: { flex: "1 1 160px", minWidth: 130 },
   tab: (active) => ({ padding: "8px 14px", borderRadius: 20, border: `1px solid ${active ? C.accent : C.border}`, background: active ? C.accent : "transparent", color: active ? "#04121c" : C.text, cursor: "pointer", fontSize: 13 }),
   opt: (state) => ({
     display: "block", width: "100%", textAlign: "left", padding: 10, borderRadius: 8, marginBottom: 8, cursor: "pointer",
@@ -32,10 +33,11 @@ const s = {
     border: `1px solid ${state === "correct" ? C.ok : state === "wrong" ? C.bad : state === "selected" ? C.accent : C.border}`,
     color: C.text,
   }),
-  badge: (ok) => ({ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 12, marginLeft: 6, background: ok ? C.ok : C.bad, color: ok ? "#04120c" : "#fff" }),
+  badge: (color) => ({ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 12, marginLeft: 6, background: color, color: color === C.warn ? "#04121c" : "#fff" }),
   topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   muted: { color: C.muted, fontSize: 13 },
   placeholder: { padding: "30px 10px", textAlign: "center", color: C.muted },
+  studentRow: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${C.border}`, padding: "10px 0" },
 };
 
 // ---------------- Helpers ----------------
@@ -51,6 +53,8 @@ const MOCK_USERS = [
 ];
 
 const CLASSES = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 function subjectsFor(cls) {
   const n = parseInt(cls, 10);
   if (n >= 11) return ["Informatics Practices", "Computer Science", "Physics", "Chemistry", "Maths"];
@@ -277,102 +281,7 @@ function QuizzesTab({ cls, subject, session }) {
   );
 }
 
-// ---------------- Attendance ----------------
-function AttendanceTab({ cls, subject, session }) {
-  const key = `${cls}|${subject}`;
-  const [store, setStore] = useState(LS.get("aims_attendance", {}));
-  const [name, setName] = useState("");
-  const today = new Date().toISOString().slice(0, 10);
-  const records = store[key] || [];
-
-  const mark = (status) => {
-    if (!name.trim()) { alert("Enter a student name."); return; }
-    const all = LS.get("aims_attendance", {});
-    const list = all[key] || [];
-    const idx = list.findIndex((r) => r.name === name.trim() && r.date === today);
-    if (idx >= 0) list[idx].status = status; else list.push({ name: name.trim(), date: today, status });
-    all[key] = list;
-    LS.set("aims_attendance", all);
-    setStore({ ...all });
-  };
-
-  const visible = session.role === "admin" ? records : records.filter((r) => r.name.toLowerCase() === String(session.name).toLowerCase());
-
-  return (
-    <div>
-      {session.role === "admin" && (
-        <div style={s.card}>
-          <h3>Mark Attendance — {today}</h3>
-          <input style={s.input} placeholder="Student name" value={name} onChange={(e) => setName(e.target.value)} />
-          <button style={s.button} onClick={() => mark("Present")}>Mark Present</button>
-          <button style={{ ...s.secondary, marginLeft: 8 }} onClick={() => mark("Absent")}>Mark Absent</button>
-        </div>
-      )}
-      <div style={s.card}>
-        <h3>Attendance Records</h3>
-        {!visible.length ? (
-          <p style={s.muted}>No records yet.</p>
-        ) : (
-          [...visible].reverse().map((r, i) => (
-            <p key={i}>{r.date} — {r.name} <span style={s.badge(r.status === "Present")}>{r.status}</span></p>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------- Fees ----------------
-function FeesTab({ cls, subject, session }) {
-  const key = `${cls}|${subject}`;
-  const [store, setStore] = useState(LS.get("aims_fees", {}));
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [status, setStatus] = useState("Paid");
-  const records = store[key] || [];
-
-  const add = () => {
-    if (!name.trim() || !amount) { alert("Enter name and amount."); return; }
-    const all = LS.get("aims_fees", {});
-    const list = all[key] || [];
-    list.push({ name: name.trim(), amount, status, date: new Date().toISOString().slice(0, 10) });
-    all[key] = list;
-    LS.set("aims_fees", all);
-    setStore({ ...all });
-    setName(""); setAmount("");
-  };
-
-  const visible = session.role === "admin" ? records : records.filter((r) => r.name.toLowerCase() === String(session.name).toLowerCase());
-
-  return (
-    <div>
-      {session.role === "admin" && (
-        <div style={s.card}>
-          <h3>Add Fee Record</h3>
-          <input style={s.input} placeholder="Student name" value={name} onChange={(e) => setName(e.target.value)} />
-          <input style={s.input} placeholder="Amount (₹)" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <select style={s.input} value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="Paid">Paid</option>
-            <option value="Due">Due</option>
-          </select>
-          <button style={s.button} onClick={add}>Add Record</button>
-        </div>
-      )}
-      <div style={s.card}>
-        <h3>Fee Records</h3>
-        {!visible.length ? (
-          <p style={s.muted}>No records yet.</p>
-        ) : (
-          [...visible].reverse().map((r, i) => (
-            <p key={i}>{r.date} — {r.name} — ₹{r.amount} <span style={s.badge(r.status === "Paid")}>{r.status}</span></p>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------- Student Management (Admin, main dashboard) ----------------
+// ================= STUDENT MANAGEMENT (Admin, main dashboard) =================
 function StudentManagementPanel() {
   const [students, setStudents] = useState(LS.get("aims_students", []));
   const [name, setName] = useState("");
@@ -402,10 +311,7 @@ function StudentManagementPanel() {
   };
 
   return (
-    <div style={s.card}>
-      <h2>Student Management</h2>
-      <p style={s.muted}>Register students with login credentials, restricted to their assigned class.</p>
-
+    <div>
       <div style={{ ...s.card, background: "#152238" }}>
         <h3>Register New Student</h3>
         <div style={s.formRow}>
@@ -422,39 +328,275 @@ function StudentManagementPanel() {
         <button style={s.button} onClick={addStudent}>Add Student</button>
       </div>
 
-      <h3>Registered Students ({students.length})</h3>
-      {!students.length ? (
-        <p style={s.muted}>No students registered yet.</p>
-      ) : (
-        students.map((st) => (
-          <div key={st.id} style={{ ...s.row, borderBottom: `1px solid ${C.border}`, padding: "8px 0" }}>
-            <div>
-              <strong>{st.name}</strong>{" "}
-              <span style={s.muted}>· {st.email} · Class {st.cls} · Roll {st.rollId}</span>
+      <div style={s.card}>
+        <h3>Registered Students ({students.length})</h3>
+        {!students.length ? (
+          <p style={s.muted}>No students registered yet.</p>
+        ) : (
+          students.map((st) => (
+            <div key={st.id} style={s.studentRow}>
+              <div>
+                <strong>{st.name}</strong>{" "}
+                <span style={s.muted}>· {st.email} · Class {st.cls} · Roll {st.rollId}</span>
+              </div>
+              <button style={{ ...s.secondary, borderColor: C.bad, color: "#f87171" }} onClick={() => removeStudent(st.id)}>Delete Student</button>
             </div>
-            <button style={{ ...s.secondary, borderColor: C.bad, color: "#f87171" }} onClick={() => removeStudent(st.id)}>Delete Student</button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ================= ATTENDANCE MANAGEMENT (Admin, main dashboard) =================
+function AttendanceManagementPanel() {
+  const [selClass, setSelClass] = useState(CLASSES[0]);
+  const [selDate, setSelDate] = useState(new Date().toISOString().slice(0, 10));
+  const [store, setStore] = useState(LS.get("aims_attendance", {}));
+
+  const students = LS.get("aims_students", []).filter((st) => st.cls === selClass);
+  const dayRecord = (store[selClass] && store[selClass][selDate]) || {};
+
+  const mark = (email, status) => {
+    const all = LS.get("aims_attendance", {});
+    const clsData = all[selClass] || {};
+    const dateData = { ...(clsData[selDate] || {}), [email]: status };
+    all[selClass] = { ...clsData, [selDate]: dateData };
+    LS.set("aims_attendance", all);
+    setStore({ ...all });
+  };
+
+  return (
+    <div>
+      <div style={s.card}>
+        <h3>Mark Attendance</h3>
+        <div style={s.formRow}>
+          <div style={s.formCol}>
+            <label style={s.muted}>Class</label>
+            <select style={s.input} value={selClass} onChange={(e) => setSelClass(e.target.value)}>
+              {CLASSES.map((c) => <option key={c} value={c}>Class {c}</option>)}
+            </select>
           </div>
+          <div style={s.formCol}>
+            <label style={s.muted}>Date</label>
+            <input style={s.input} type="date" value={selDate} onChange={(e) => setSelDate(e.target.value)} />
+          </div>
+        </div>
+
+        {!students.length ? (
+          <p style={s.muted}>No students registered in Class {selClass} yet.</p>
+        ) : (
+          students.map((st) => {
+            const status = dayRecord[st.email];
+            return (
+              <div key={st.id} style={s.studentRow}>
+                <div>
+                  <strong>{st.name}</strong> <span style={s.muted}>· Roll {st.rollId}</span>
+                  {status && <span style={s.badge(status === "Present" ? C.ok : C.bad)}>{status}</span>}
+                </div>
+                <div>
+                  <button style={{ ...s.secondary, borderColor: C.ok }} onClick={() => mark(st.email, "Present")}>Present</button>
+                  <button style={{ ...s.secondary, borderColor: C.bad, marginLeft: 8 }} onClick={() => mark(st.email, "Absent")}>Absent</button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Student-facing read-only attendance history for their own class
+function AttendanceHistoryCard({ session }) {
+  const store = LS.get("aims_attendance", {});
+  const clsData = store[session.cls] || {};
+  const rows = Object.keys(clsData)
+    .filter((date) => clsData[date][session.email])
+    .map((date) => ({ date, status: clsData[date][session.email] }))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  return (
+    <div style={s.card}>
+      <h3>My Attendance History</h3>
+      {!rows.length ? (
+        <p style={s.muted}>No attendance records yet.</p>
+      ) : (
+        rows.map((r, i) => (
+          <p key={i}>{r.date} <span style={s.badge(r.status === "Present" ? C.ok : C.bad)}>{r.status}</span></p>
         ))
       )}
     </div>
   );
 }
 
-// ---------------- Admin Main Dashboard ----------------
-function AdminDashboard({ onPickClass }) {
+// ================= FEE MANAGEMENT (Admin, main dashboard) =================
+function computeFeeStatus(total, paid) {
+  const t = parseFloat(total) || 0;
+  const p = parseFloat(paid) || 0;
+  if (p <= 0) return "Pending";
+  if (p >= t && t > 0) return "Paid";
+  return "Partial";
+}
+
+function FeeManagementPanel() {
+  const [selClass, setSelClass] = useState(CLASSES[0]);
+  const [selMonth, setSelMonth] = useState(MONTHS[new Date().getMonth()]);
+  const [store, setStore] = useState(LS.get("aims_fees", {}));
+  const [drafts, setDrafts] = useState({});
+
+  const students = LS.get("aims_students", []).filter((st) => st.cls === selClass);
+  const classData = store[selClass] || {};
+
+  const getDraft = (email) => {
+    if (drafts[email]) return drafts[email];
+    const existing = (classData[email] && classData[email][selMonth]) || { total: "", paid: "" };
+    return { total: existing.total ?? "", paid: existing.paid ?? "" };
+  };
+
+  const setDraft = (email, field, value) => {
+    setDrafts({ ...drafts, [email]: { ...getDraft(email), [field]: value } });
+  };
+
+  const saveFee = (email) => {
+    const d = getDraft(email);
+    if (d.total === "" || d.paid === "") { alert("Enter total and paid amount."); return; }
+    const total = parseFloat(d.total) || 0;
+    const paid = parseFloat(d.paid) || 0;
+    const due = Math.max(total - paid, 0);
+    const status = computeFeeStatus(total, paid);
+    const all = LS.get("aims_fees", {});
+    const clsData = all[selClass] || {};
+    const studentData = { ...(clsData[email] || {}), [selMonth]: { total, paid, due, status } };
+    all[selClass] = { ...clsData, [email]: studentData };
+    LS.set("aims_fees", all);
+    setStore({ ...all });
+  };
+
   return (
     <div>
-      <ClassGrid onPick={onPickClass} />
-      <StudentManagementPanel />
+      <div style={s.card}>
+        <h3>Update Month-wise Fees</h3>
+        <div style={s.formRow}>
+          <div style={s.formCol}>
+            <label style={s.muted}>Class</label>
+            <select style={s.input} value={selClass} onChange={(e) => setSelClass(e.target.value)}>
+              {CLASSES.map((c) => <option key={c} value={c}>Class {c}</option>)}
+            </select>
+          </div>
+          <div style={s.formCol}>
+            <label style={s.muted}>Month</label>
+            <select style={s.input} value={selMonth} onChange={(e) => setSelMonth(e.target.value)}>
+              {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {!students.length ? (
+          <p style={s.muted}>No students registered in Class {selClass} yet.</p>
+        ) : (
+          students.map((st) => {
+            const d = getDraft(st.email);
+            const saved = classData[st.email] && classData[st.email][selMonth];
+            return (
+              <div key={st.id} style={{ ...s.card, background: "#152238" }}>
+                <div style={s.row}>
+                  <strong>{st.name}</strong>
+                  {saved && (
+                    <span>
+                      <span style={s.badge(saved.status === "Paid" ? C.ok : saved.status === "Partial" ? C.warn : C.bad)}>{saved.status}</span>
+                    </span>
+                  )}
+                </div>
+                <div style={s.formRow}>
+                  <div style={s.formCol}>
+                    <input style={s.input} type="number" placeholder="Total Amount (₹)" value={d.total} onChange={(e) => setDraft(st.email, "total", e.target.value)} />
+                  </div>
+                  <div style={s.formCol}>
+                    <input style={s.input} type="number" placeholder="Paid Amount (₹)" value={d.paid} onChange={(e) => setDraft(st.email, "paid", e.target.value)} />
+                  </div>
+                  <div style={s.formCol}>
+                    <input style={s.input} disabled value={`Due: ₹${Math.max((parseFloat(d.total) || 0) - (parseFloat(d.paid) || 0), 0)}`} />
+                  </div>
+                </div>
+                <button style={s.button} onClick={() => saveFee(st.email)}>Save {selMonth} Fee</button>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
 
-// ---------------- Subject Dashboard ----------------
+// Student-facing read-only month-wise fee status for their own account
+function FeeStatusCard({ session }) {
+  const store = LS.get("aims_fees", {});
+  const classData = store[session.cls] || {};
+  const myRecords = classData[session.email] || {};
+  const months = MONTHS.filter((m) => myRecords[m]);
+
+  return (
+    <div style={s.card}>
+      <h3>My Fee Status</h3>
+      {!months.length ? (
+        <p style={s.muted}>No fee records yet.</p>
+      ) : (
+        months.map((m) => {
+          const r = myRecords[m];
+          return (
+            <p key={m}>
+              {m} — Total ₹{r.total}, Paid ₹{r.paid}, Due ₹{r.due}{" "}
+              <span style={s.badge(r.status === "Paid" ? C.ok : r.status === "Partial" ? C.warn : C.bad)}>{r.status}</span>
+            </p>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+// ================= Admin Main Dashboard =================
+function AdminDashboard({ onPickClass }) {
+  const [tab, setTab] = useState("students");
+  const tabs = [
+    { id: "students", label: "Student Management" },
+    { id: "attendance", label: "Attendance Management" },
+    { id: "fees", label: "Fee Management" },
+  ];
+  return (
+    <div>
+      <ClassGrid onPick={onPickClass} />
+      <div style={{ marginTop: 8 }}>
+        <div style={s.tabs}>
+          {tabs.map((t) => (
+            <div key={t.id} style={s.tab(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</div>
+          ))}
+        </div>
+        {tab === "students" && <StudentManagementPanel />}
+        {tab === "attendance" && <AttendanceManagementPanel />}
+        {tab === "fees" && <FeeManagementPanel />}
+      </div>
+    </div>
+  );
+}
+
+// ================= Student Dashboard (subject grid + own attendance/fees) =================
+function StudentDashboard({ session, onPickSubject }) {
+  return (
+    <div>
+      <SubjectGrid cls={session.cls} showBack={false} onPick={onPickSubject} />
+      <AttendanceHistoryCard session={session} />
+      <FeeStatusCard session={session} />
+    </div>
+  );
+}
+
+// ---------------- Subject Dashboard (Class > Subject) ----------------
 function SubjectDashboard({ cls, subject, session, onBack }) {
   const [tab, setTab] = useState("quizzes");
-  const tabList = ["quizzes", ...(session.role === "admin" ? ["create"] : []), "attendance", "fees", "material", "live"];
-  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", attendance: "Attendance", fees: "Fees", material: "Study Material", live: "Live Classes" };
+  const tabList = ["quizzes", ...(session.role === "admin" ? ["create"] : []), "material", "live"];
+  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", material: "Study Material", live: "Live Classes" };
 
   return (
     <div>
@@ -467,8 +609,6 @@ function SubjectDashboard({ cls, subject, session, onBack }) {
       </div>
       {tab === "quizzes" && <QuizzesTab cls={cls} subject={subject} session={session} />}
       {tab === "create" && <CreateQuizTab cls={cls} subject={subject} />}
-      {tab === "attendance" && <AttendanceTab cls={cls} subject={subject} session={session} />}
-      {tab === "fees" && <FeesTab cls={cls} subject={subject} session={session} />}
       {(tab === "material" || tab === "live") && (
         <div style={{ ...s.card, ...s.placeholder }}>{labels[tab]} module — coming soon in this panel.</div>
       )}
@@ -482,7 +622,7 @@ export default function App() {
   const isStudentSession = storedSession && storedSession.role === "student";
 
   const [session, setSession] = useState(storedSession);
-  // Students skip class selection entirely and land directly on their own class's subjects
+  // Students skip class selection entirely and land directly on their own class's dashboard
   const [view, setView] = useState(isStudentSession ? "subjects" : "classes");
   const [cls, setCls] = useState(isStudentSession ? storedSession.cls : null);
   const [subject, setSubject] = useState(null);
@@ -525,17 +665,25 @@ export default function App() {
       <div style={s.inner}>
         <TopBar session={session} onLogout={logout} />
 
-        {/* Class grid + Student Management are admin-only; students never reach this view */}
+        {/* Admin-only main dashboard: Class grid + Student/Attendance/Fee management. Students never reach this view. */}
         {view === "classes" && isAdmin && (
           <AdminDashboard onPickClass={(c) => { setCls(c); setView("subjects"); }} />
         )}
 
-        {view === "subjects" && (
+        {view === "subjects" && isAdmin && (
           <SubjectGrid
             cls={cls}
-            showBack={isAdmin}
+            showBack={true}
             onBack={() => setView("classes")}
             onPick={(sub) => { setSubject(sub); setView("dashboard"); }}
+          />
+        )}
+
+        {/* Students are locked to their own class: subject grid + their own attendance/fee cards only */}
+        {view === "subjects" && !isAdmin && (
+          <StudentDashboard
+            session={session}
+            onPickSubject={(sub) => { setSubject(sub); setView("dashboard"); }}
           />
         )}
 
