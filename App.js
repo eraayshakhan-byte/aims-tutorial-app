@@ -13,14 +13,18 @@ const C = {
 };
 
 const s = {
-  app: { maxWidth: 900, margin: "0 auto", padding: 16, background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif" },
-  card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 12 },
+  app: { width: "100%", minHeight: "100vh", margin: 0, padding: "16px", background: C.bg, color: C.text, fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif", boxSizing: "border-box", display: "flex", flexDirection: "column" },
+  inner: { width: "100%", maxWidth: 1100, margin: "0 auto", flex: 1 },
+  card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 12, width: "100%", boxSizing: "border-box" },
   input: { width: "100%", background: "#0b1222", border: `1px solid ${C.border}`, color: C.text, padding: 10, borderRadius: 8, marginBottom: 10, fontSize: 15, boxSizing: "border-box" },
   button: { background: C.accent, color: "#04121c", border: "none", padding: "10px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 14 },
   secondary: { background: "transparent", border: `1px solid ${C.border}`, color: C.text, padding: "10px 16px", borderRadius: 8, cursor: "pointer", fontSize: 14 },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(90px,1fr))", gap: 10 },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(100px,1fr))", gap: 10, width: "100%" },
   tile: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 8px", textAlign: "center", cursor: "pointer" },
   tabs: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 },
+  row: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between" },
+  formRow: { display: "flex", flexWrap: "wrap", gap: 10 },
+  formCol: { flex: "1 1 180px", minWidth: 140 },
   tab: (active) => ({ padding: "8px 14px", borderRadius: 20, border: `1px solid ${active ? C.accent : C.border}`, background: active ? C.accent : "transparent", color: active ? "#04121c" : C.text, cursor: "pointer", fontSize: 13 }),
   opt: (state) => ({
     display: "block", width: "100%", textAlign: "left", padding: 10, borderRadius: 8, marginBottom: 8, cursor: "pointer",
@@ -76,6 +80,19 @@ function parseQuiz(raw) {
   return questions.filter((q) => q.text && Object.keys(q.options).length >= 2 && q.answer);
 }
 
+// ---------------- Global reset ----------------
+function GlobalStyle() {
+  return (
+    <style>{`
+      html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100%; background: ${C.bg}; }
+      * { box-sizing: border-box; }
+      @media (max-width: 480px) {
+        .aims-grid-tile { padding: 12px 6px !important; font-size: 13px; }
+      }
+    `}</style>
+  );
+}
+
 // ---------------- Login ----------------
 function LoginView({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -87,7 +104,7 @@ function LoginView({ onLogin }) {
     onLogin(u);
   };
   return (
-    <div style={{ maxWidth: 380, margin: "60px auto", padding: "0 16px" }}>
+    <div style={{ width: "100%", maxWidth: 380, margin: "auto", padding: "0 16px" }}>
       <div style={s.card}>
         <h2>AIMS Login</h2>
         <p style={s.muted}>Admin: admin@aims.com / 123 · Student: student@aims.com / 123</p>
@@ -337,11 +354,71 @@ function FeesTab({ cls, subject, session }) {
   );
 }
 
+// ---------------- Student Management (Admin) ----------------
+function StudentsTab() {
+  const [students, setStudents] = useState(LS.get("aims_students", []));
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [cls, setCls] = useState(CLASSES[0]);
+  const [rollId, setRollId] = useState("");
+
+  const addStudent = () => {
+    if (!name.trim() || !email.trim()) { alert("Enter name and email."); return; }
+    const list = LS.get("aims_students", []);
+    list.push({ id: Date.now(), name: name.trim(), email: email.trim(), cls, rollId: rollId.trim() || "-" });
+    LS.set("aims_students", list);
+    setStudents(list);
+    setName(""); setEmail(""); setRollId("");
+  };
+
+  const removeStudent = (id) => {
+    if (!window.confirm("Remove this student record?")) return;
+    const list = LS.get("aims_students", []).filter((st) => st.id !== id);
+    LS.set("aims_students", list);
+    setStudents(list);
+  };
+
+  return (
+    <div>
+      <div style={s.card}>
+        <h3>Register New Student</h3>
+        <div style={s.formRow}>
+          <div style={s.formCol}><input style={s.input} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div style={s.formCol}><input style={s.input} placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div style={s.formCol}>
+            <select style={s.input} value={cls} onChange={(e) => setCls(e.target.value)}>
+              {CLASSES.map((c) => <option key={c} value={c}>Class {c}</option>)}
+            </select>
+          </div>
+          <div style={s.formCol}><input style={s.input} placeholder="Roll / ID" value={rollId} onChange={(e) => setRollId(e.target.value)} /></div>
+        </div>
+        <button style={s.button} onClick={addStudent}>Add Student</button>
+      </div>
+
+      <div style={s.card}>
+        <h3>Registered Students ({students.length})</h3>
+        {!students.length ? (
+          <p style={s.muted}>No students registered yet.</p>
+        ) : (
+          students.map((st) => (
+            <div key={st.id} style={{ ...s.row, borderBottom: `1px solid ${C.border}`, padding: "8px 0" }}>
+              <div>
+                <strong>{st.name}</strong> <span style={s.muted}>· {st.email} · Class {st.cls} · Roll {st.rollId}</span>
+              </div>
+              <button style={{ ...s.secondary, borderColor: C.bad, color: "#f87171" }} onClick={() => removeStudent(st.id)}>Remove</button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---------------- Subject Dashboard ----------------
 function SubjectDashboard({ cls, subject, session, onBack }) {
   const [tab, setTab] = useState("quizzes");
-  const tabList = ["quizzes", ...(session.role === "admin" ? ["create"] : []), "attendance", "fees", "material", "live"];
-  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", attendance: "Attendance", fees: "Fees", material: "Study Material", live: "Live Classes" };
+  const tabList = ["quizzes", ...(session.role === "admin" ? ["create", "students"] : []), "attendance", "fees", "material", "live"];
+  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", students: "Student Management", attendance: "Attendance", fees: "Fees", material: "Study Material", live: "Live Classes" };
 
   return (
     <div>
@@ -354,6 +431,7 @@ function SubjectDashboard({ cls, subject, session, onBack }) {
       </div>
       {tab === "quizzes" && <QuizzesTab cls={cls} subject={subject} session={session} />}
       {tab === "create" && <CreateQuizTab cls={cls} subject={subject} />}
+      {tab === "students" && <StudentsTab />}
       {tab === "attendance" && <AttendanceTab cls={cls} subject={subject} session={session} />}
       {tab === "fees" && <FeesTab cls={cls} subject={subject} session={session} />}
       {(tab === "material" || tab === "live") && (
@@ -374,20 +452,30 @@ export default function App() {
 
   const logout = () => { setSession(null); setView("classes"); setCls(null); setSubject(null); };
 
-  if (!session) return <div style={s.app}><LoginView onLogin={setSession} /></div>;
+  if (!session) {
+    return (
+      <div style={{ ...s.app, alignItems: "center", justifyContent: "center" }}>
+        <GlobalStyle />
+        <LoginView onLogin={setSession} />
+      </div>
+    );
+  }
 
   return (
     <div style={s.app}>
-      <TopBar session={session} onLogout={logout} />
-      {view === "classes" && (
-        <ClassGrid onPick={(c) => { setCls(c); setView("subjects"); }} />
-      )}
-      {view === "subjects" && (
-        <SubjectGrid cls={cls} onBack={() => setView("classes")} onPick={(sub) => { setSubject(sub); setView("dashboard"); }} />
-      )}
-      {view === "dashboard" && (
-        <SubjectDashboard cls={cls} subject={subject} session={session} onBack={() => setView("subjects")} />
-      )}
+      <GlobalStyle />
+      <div style={s.inner}>
+        <TopBar session={session} onLogout={logout} />
+        {view === "classes" && (
+          <ClassGrid onPick={(c) => { setCls(c); setView("subjects"); }} />
+        )}
+        {view === "subjects" && (
+          <SubjectGrid cls={cls} onBack={() => setView("classes")} onPick={(sub) => { setSubject(sub); setView("dashboard"); }} />
+        )}
+        {view === "dashboard" && (
+          <SubjectDashboard cls={cls} subject={subject} session={session} onBack={() => setView("subjects")} />
+        )}
+      </div>
     </div>
   );
 }
