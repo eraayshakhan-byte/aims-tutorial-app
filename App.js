@@ -44,9 +44,10 @@ const LS = {
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
+// Admin credential + one legacy demo student (kept for quick testing)
 const MOCK_USERS = [
   { email: "admin@aims.com", pass: "123", role: "admin", name: "Admin" },
-  { email: "student@aims.com", pass: "123", role: "student", name: "Student", class: "10", subject: "Maths" },
+  { email: "student@aims.com", pass: "123", role: "student", name: "Student", cls: "10" },
 ];
 
 const CLASSES = Array.from({ length: 12 }, (_, i) => String(i + 1));
@@ -55,6 +56,18 @@ function subjectsFor(cls) {
   if (n >= 11) return ["Informatics Practices", "Computer Science", "Physics", "Chemistry", "Maths"];
   if (n >= 9) return ["Science", "Maths", "Social Science", "English", "Hindi"];
   return ["EVS", "Maths", "English", "Hindi"];
+}
+
+// Authenticate against admin/demo accounts first, then registered students
+function authenticate(email, pass) {
+  const e = email.trim();
+  const p = pass.trim();
+  const mock = MOCK_USERS.find((u) => u.email === e && u.pass === p);
+  if (mock) return { email: mock.email, name: mock.name, role: mock.role, cls: mock.cls || null, rollId: null };
+  const students = LS.get("aims_students", []);
+  const st = students.find((u) => u.email === e && u.password === p);
+  if (st) return { email: st.email, name: st.name, role: "student", cls: st.cls, rollId: st.rollId };
+  return null;
 }
 
 function parseQuiz(raw) {
@@ -99,7 +112,7 @@ function LoginView({ onLogin }) {
   const [pass, setPass] = useState("");
   const [err, setErr] = useState("");
   const submit = () => {
-    const u = MOCK_USERS.find((u) => u.email === email.trim() && u.pass === pass.trim());
+    const u = authenticate(email, pass);
     if (!u) { setErr("Invalid credentials"); return; }
     onLogin(u);
   };
@@ -107,7 +120,7 @@ function LoginView({ onLogin }) {
     <div style={{ width: "100%", maxWidth: 380, margin: "auto", padding: "0 16px" }}>
       <div style={s.card}>
         <h2>AIMS Login</h2>
-        <p style={s.muted}>Admin: admin@aims.com / 123 · Student: student@aims.com / 123</p>
+        <p style={s.muted}>Admin: admin@aims.com / 123 · Demo student: student@aims.com / 123</p>
         <input style={s.input} placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input style={s.input} placeholder="Password" type="password" value={pass} onChange={(e) => setPass(e.target.value)} />
         {err && <p style={{ color: "#f87171", fontSize: 13 }}>{err}</p>}
@@ -121,7 +134,12 @@ function LoginView({ onLogin }) {
 function TopBar({ session, onLogout }) {
   return (
     <div style={s.topbar}>
-      <div><strong>AIMS</strong> <span style={s.muted}>· {session.name} ({session.role})</span></div>
+      <div>
+        <strong>AIMS</strong>{" "}
+        <span style={s.muted}>
+          · {session.name} ({session.role}{session.role === "student" ? ` · Class ${session.cls}` : ""})
+        </span>
+      </div>
       <button style={s.secondary} onClick={onLogout}>Logout</button>
     </div>
   );
@@ -141,10 +159,10 @@ function ClassGrid({ onPick }) {
   );
 }
 
-function SubjectGrid({ cls, onBack, onPick }) {
+function SubjectGrid({ cls, onBack, onPick, showBack }) {
   return (
     <div>
-      <button style={s.secondary} onClick={onBack}>← Back</button>
+      {showBack && <button style={s.secondary} onClick={onBack}>← Back</button>}
       <h2>Class {cls} — Select Subject</h2>
       <div style={s.grid}>
         {subjectsFor(cls).map((sub) => (
@@ -354,62 +372,80 @@ function FeesTab({ cls, subject, session }) {
   );
 }
 
-// ---------------- Student Management (Admin) ----------------
-function StudentsTab() {
+// ---------------- Student Management (Admin, main dashboard) ----------------
+function StudentManagementPanel() {
   const [students, setStudents] = useState(LS.get("aims_students", []));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [cls, setCls] = useState(CLASSES[0]);
   const [rollId, setRollId] = useState("");
 
   const addStudent = () => {
-    if (!name.trim() || !email.trim()) { alert("Enter name and email."); return; }
+    if (!name.trim() || !email.trim() || !password.trim()) { alert("Enter name, email and password."); return; }
     const list = LS.get("aims_students", []);
-    list.push({ id: Date.now(), name: name.trim(), email: email.trim(), cls, rollId: rollId.trim() || "-" });
+    if (list.some((st) => st.email.toLowerCase() === email.trim().toLowerCase())) {
+      alert("A student with this email is already registered.");
+      return;
+    }
+    list.push({ id: Date.now(), name: name.trim(), email: email.trim(), password: password.trim(), cls, rollId: rollId.trim() || "-" });
     LS.set("aims_students", list);
     setStudents(list);
-    setName(""); setEmail(""); setRollId("");
+    setName(""); setEmail(""); setPassword(""); setRollId("");
   };
 
   const removeStudent = (id) => {
-    if (!window.confirm("Remove this student record?")) return;
+    if (!window.confirm("Remove this student's access? They will no longer be able to log in.")) return;
     const list = LS.get("aims_students", []).filter((st) => st.id !== id);
     LS.set("aims_students", list);
     setStudents(list);
   };
 
   return (
-    <div>
-      <div style={s.card}>
+    <div style={s.card}>
+      <h2>Student Management</h2>
+      <p style={s.muted}>Register students with login credentials, restricted to their assigned class.</p>
+
+      <div style={{ ...s.card, background: "#152238" }}>
         <h3>Register New Student</h3>
         <div style={s.formRow}>
           <div style={s.formCol}><input style={s.input} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} /></div>
           <div style={s.formCol}><input style={s.input} placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div style={s.formCol}><input style={s.input} placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
           <div style={s.formCol}>
             <select style={s.input} value={cls} onChange={(e) => setCls(e.target.value)}>
               {CLASSES.map((c) => <option key={c} value={c}>Class {c}</option>)}
             </select>
           </div>
-          <div style={s.formCol}><input style={s.input} placeholder="Roll / ID" value={rollId} onChange={(e) => setRollId(e.target.value)} /></div>
+          <div style={s.formCol}><input style={s.input} placeholder="Roll / Student ID" value={rollId} onChange={(e) => setRollId(e.target.value)} /></div>
         </div>
         <button style={s.button} onClick={addStudent}>Add Student</button>
       </div>
 
-      <div style={s.card}>
-        <h3>Registered Students ({students.length})</h3>
-        {!students.length ? (
-          <p style={s.muted}>No students registered yet.</p>
-        ) : (
-          students.map((st) => (
-            <div key={st.id} style={{ ...s.row, borderBottom: `1px solid ${C.border}`, padding: "8px 0" }}>
-              <div>
-                <strong>{st.name}</strong> <span style={s.muted}>· {st.email} · Class {st.cls} · Roll {st.rollId}</span>
-              </div>
-              <button style={{ ...s.secondary, borderColor: C.bad, color: "#f87171" }} onClick={() => removeStudent(st.id)}>Remove</button>
+      <h3>Registered Students ({students.length})</h3>
+      {!students.length ? (
+        <p style={s.muted}>No students registered yet.</p>
+      ) : (
+        students.map((st) => (
+          <div key={st.id} style={{ ...s.row, borderBottom: `1px solid ${C.border}`, padding: "8px 0" }}>
+            <div>
+              <strong>{st.name}</strong>{" "}
+              <span style={s.muted}>· {st.email} · Class {st.cls} · Roll {st.rollId}</span>
             </div>
-          ))
-        )}
-      </div>
+            <button style={{ ...s.secondary, borderColor: C.bad, color: "#f87171" }} onClick={() => removeStudent(st.id)}>Delete Student</button>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ---------------- Admin Main Dashboard ----------------
+function AdminDashboard({ onPickClass }) {
+  return (
+    <div>
+      <ClassGrid onPick={onPickClass} />
+      <StudentManagementPanel />
     </div>
   );
 }
@@ -417,8 +453,8 @@ function StudentsTab() {
 // ---------------- Subject Dashboard ----------------
 function SubjectDashboard({ cls, subject, session, onBack }) {
   const [tab, setTab] = useState("quizzes");
-  const tabList = ["quizzes", ...(session.role === "admin" ? ["create", "students"] : []), "attendance", "fees", "material", "live"];
-  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", students: "Student Management", attendance: "Attendance", fees: "Fees", material: "Study Material", live: "Live Classes" };
+  const tabList = ["quizzes", ...(session.role === "admin" ? ["create"] : []), "attendance", "fees", "material", "live"];
+  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", attendance: "Attendance", fees: "Fees", material: "Study Material", live: "Live Classes" };
 
   return (
     <div>
@@ -431,7 +467,6 @@ function SubjectDashboard({ cls, subject, session, onBack }) {
       </div>
       {tab === "quizzes" && <QuizzesTab cls={cls} subject={subject} session={session} />}
       {tab === "create" && <CreateQuizTab cls={cls} subject={subject} />}
-      {tab === "students" && <StudentsTab />}
       {tab === "attendance" && <AttendanceTab cls={cls} subject={subject} session={session} />}
       {tab === "fees" && <FeesTab cls={cls} subject={subject} session={session} />}
       {(tab === "material" || tab === "live") && (
@@ -443,37 +478,74 @@ function SubjectDashboard({ cls, subject, session, onBack }) {
 
 // ---------------- Root App ----------------
 export default function App() {
-  const [session, setSession] = useState(() => LS.get("aims_session", null));
-  const [view, setView] = useState("classes");
-  const [cls, setCls] = useState(null);
+  const storedSession = LS.get("aims_session", null);
+  const isStudentSession = storedSession && storedSession.role === "student";
+
+  const [session, setSession] = useState(storedSession);
+  // Students skip class selection entirely and land directly on their own class's subjects
+  const [view, setView] = useState(isStudentSession ? "subjects" : "classes");
+  const [cls, setCls] = useState(isStudentSession ? storedSession.cls : null);
   const [subject, setSubject] = useState(null);
 
   useEffect(() => { LS.set("aims_session", session); }, [session]);
 
-  const logout = () => { setSession(null); setView("classes"); setCls(null); setSubject(null); };
+  const handleLogin = (u) => {
+    setSession(u);
+    if (u.role === "student") {
+      setView("subjects");
+      setCls(u.cls);
+    } else {
+      setView("classes");
+      setCls(null);
+    }
+    setSubject(null);
+  };
+
+  const logout = () => {
+    setSession(null);
+    setView("classes");
+    setCls(null);
+    setSubject(null);
+  };
 
   if (!session) {
     return (
       <div style={{ ...s.app, alignItems: "center", justifyContent: "center" }}>
         <GlobalStyle />
-        <LoginView onLogin={setSession} />
+        <LoginView onLogin={handleLogin} />
       </div>
     );
   }
+
+  const isAdmin = session.role === "admin";
 
   return (
     <div style={s.app}>
       <GlobalStyle />
       <div style={s.inner}>
         <TopBar session={session} onLogout={logout} />
-        {view === "classes" && (
-          <ClassGrid onPick={(c) => { setCls(c); setView("subjects"); }} />
+
+        {/* Class grid + Student Management are admin-only; students never reach this view */}
+        {view === "classes" && isAdmin && (
+          <AdminDashboard onPickClass={(c) => { setCls(c); setView("subjects"); }} />
         )}
+
         {view === "subjects" && (
-          <SubjectGrid cls={cls} onBack={() => setView("classes")} onPick={(sub) => { setSubject(sub); setView("dashboard"); }} />
+          <SubjectGrid
+            cls={cls}
+            showBack={isAdmin}
+            onBack={() => setView("classes")}
+            onPick={(sub) => { setSubject(sub); setView("dashboard"); }}
+          />
         )}
+
         {view === "dashboard" && (
-          <SubjectDashboard cls={cls} subject={subject} session={session} onBack={() => setView("subjects")} />
+          <SubjectDashboard
+            cls={cls}
+            subject={subject}
+            session={session}
+            onBack={() => setView("subjects")}
+          />
         )}
       </div>
     </div>
