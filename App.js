@@ -1,145 +1,393 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 
-export default function App() {
-  // --- Auth States ---
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [users, setUsers] = useState([
-    { email: 'admin@aims.com', password: '123', name: 'Admin Teacher', role: 'admin' },
-    { email: 'student@aims.com', password: '123', name: 'Rahul Sharma', role: 'student', class: '10' }
-  ]);
+// ---------------- Theme ----------------
+const C = {
+  bg: "#0f172a",
+  card: "#1e293b",
+  border: "#334155",
+  accent: "#38bdf8",
+  ok: "#10b981",
+  bad: "#991b1b",
+  text: "#e2e8f0",
+  muted: "#94a3b8",
+};
 
-  // Auth Inputs
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authName, setAuthName] = useState('');
-  const [authRole, setAuthRole] = useState('student');
-  const [authClass, setAuthClass] = useState('10');
+const s = {
+  app: { maxWidth: 900, margin: "0 auto", padding: 16, background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif" },
+  card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 12 },
+  input: { width: "100%", background: "#0b1222", border: `1px solid ${C.border}`, color: C.text, padding: 10, borderRadius: 8, marginBottom: 10, fontSize: 15, boxSizing: "border-box" },
+  button: { background: C.accent, color: "#04121c", border: "none", padding: "10px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 14 },
+  secondary: { background: "transparent", border: `1px solid ${C.border}`, color: C.text, padding: "10px 16px", borderRadius: 8, cursor: "pointer", fontSize: 14 },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(90px,1fr))", gap: 10 },
+  tile: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 8px", textAlign: "center", cursor: "pointer" },
+  tabs: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 },
+  tab: (active) => ({ padding: "8px 14px", borderRadius: 20, border: `1px solid ${active ? C.accent : C.border}`, background: active ? C.accent : "transparent", color: active ? "#04121c" : C.text, cursor: "pointer", fontSize: 13 }),
+  opt: (state) => ({
+    display: "block", width: "100%", textAlign: "left", padding: 10, borderRadius: 8, marginBottom: 8, cursor: "pointer",
+    background: state === "correct" ? "#062b20" : state === "wrong" ? "#3a0f0f" : state === "selected" ? "#0c2433" : "#0b1222",
+    border: `1px solid ${state === "correct" ? C.ok : state === "wrong" ? C.bad : state === "selected" ? C.accent : C.border}`,
+    color: C.text,
+  }),
+  badge: (ok) => ({ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 12, marginLeft: 6, background: ok ? C.ok : C.bad, color: ok ? "#04120c" : "#fff" }),
+  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  muted: { color: C.muted, fontSize: 13 },
+  placeholder: { padding: "30px 10px", textAlign: "center", color: C.muted },
+};
 
-  // Navigation States
-  const [selectedClass, setSelectedClass] = useState(null);
-  const [selectedSubject, setSelectedSubject] = useState(null);
+// ---------------- Helpers ----------------
+const LS = {
+  get: (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
 
-  // Quiz / Text Converter States
-  const [rawText, setRawText] = useState('');
-  const [parsedQuestions, setParsedQuestions] = useState([]);
-  const [quizTitle, setQuizTitle] = useState('');
-  const [worksheets, setWorksheets] = useState([]);
-  const [activeQuiz, setActiveQuiz] = useState(null);
-  const [userAnswers, setUserAnswers] = useState({});
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [score, setScore] = useState(0);
+const MOCK_USERS = [
+  { email: "admin@aims.com", pass: "123", role: "admin", name: "Admin" },
+  { email: "student@aims.com", pass: "123", role: "student", name: "Student", class: "10", subject: "Maths" },
+];
 
-  // Load Worksheets on Mount
-  useEffect(() => {
-    const saved = localStorage.getItem('aims_worksheets');
-    if (saved) {
-      try { setWorksheets(JSON.parse(saved)); } catch (e) {}
+const CLASSES = Array.from({ length: 12 }, (_, i) => String(i + 1));
+function subjectsFor(cls) {
+  const n = parseInt(cls, 10);
+  if (n >= 11) return ["Informatics Practices", "Computer Science", "Physics", "Chemistry", "Maths"];
+  if (n >= 9) return ["Science", "Maths", "Social Science", "English", "Hindi"];
+  return ["EVS", "Maths", "English", "Hindi"];
+}
+
+function parseQuiz(raw) {
+  const lines = raw.split("\n").map((l) => l.trim()).filter((l) => l.length);
+  const questions = [];
+  let cur = null;
+  const qRe = /^(?:Q\.?\s*\d+[.):]?|\d+[.)])\s*(.*)/i;
+  const optRe = /^([A-D])[.)]\s*(.*)/i;
+  const ansRe = /^(?:Answer|Ans)\s*[:\-]?\s*([A-D])/i;
+  lines.forEach((line) => {
+    let m;
+    if ((m = line.match(qRe))) {
+      cur = { text: m[1], options: {}, answer: null };
+      questions.push(cur);
+    } else if (cur && (m = line.match(optRe))) {
+      cur.options[m[1].toUpperCase()] = m[2];
+    } else if (cur && (m = line.match(ansRe))) {
+      cur.answer = m[1].toUpperCase();
+    } else if (cur) {
+      cur.text += " " + line;
     }
-  }, []);
+  });
+  return questions.filter((q) => q.text && Object.keys(q.options).length >= 2 && q.answer);
+}
 
-  const saveWorksheetsToStorage = (updated) => {
-    setWorksheets(updated);
-    localStorage.setItem('aims_worksheets', JSON.stringify(updated));
+// ---------------- Login ----------------
+function LoginView({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState("");
+  const submit = () => {
+    const u = MOCK_USERS.find((u) => u.email === email.trim() && u.pass === pass.trim());
+    if (!u) { setErr("Invalid credentials"); return; }
+    onLogin(u);
   };
-
-  // Auth Logic
-  const handleAuthSubmit = () => {
-    if (isRegistering) {
-      if (!authEmail || !authPassword || !authName) {
-        alert('Kripya saari details bharein.');
-        return;
-      }
-      const newUser = { email: authEmail, password: authPassword, name: authName, role: authRole, class: authClass };
-      setUsers([...users, newUser]);
-      setCurrentUser(newUser);
-    } else {
-      const user = users.find(u => u.email === authEmail && u.password === authPassword);
-      if (user) {
-        setCurrentUser(user);
-      } else {
-        alert('Galat Email ya Password!');
-      }
-    }
-  };
-
-  // Gemini Text Parsing Engine
-  const handleParseTextToQuiz = () => {
-    if (!rawText.trim()) return;
-    const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
-    const questionsArr = [];
-    let currentQ = null;
-
-    lines.forEach(line => {
-      const qMatch = line.match(/^(?:Q\d*[\.:\)]|\d+[\.:\)])\s*(.*)/i);
-      const optMatch = line.match(/^(?:[A-Da-d][\.:\)]|\([A-Da-d]\))\s*(.*)/i);
-      const ansMatch = line.match(/(?:Answer|Ans|Correct Option)[\s:]*([A-Da-d])/i);
-
-      if (qMatch) {
-        if (currentQ) questionsArr.push(currentQ);
-        currentQ = { id: Date.now() + Math.random(), question: qMatch[1], options: [], correctAnswer: 0 };
-      } else if (optMatch && currentQ) {
-        currentQ.options.push(optMatch[1]);
-      } else if (ansMatch && currentQ) {
-        const letter = ansMatch[1].toUpperCase();
-        currentQ.correctAnswer = letter.charCodeAt(0) - 65;
-      }
-    });
-    if (currentQ) questionsArr.push(currentQ);
-
-    if (questionsArr.length === 0) {
-      alert('Text format samajh nahi aaya. Kripya Gemini se aane waale questions sahi format me paste karein.');
-    } else {
-      setParsedQuestions(questionsArr);
-    }
-  };
-
-  const handleSaveWorksheet = () => {
-    if (!quizTitle.trim()) {
-      alert('Kripya Quiz ka Title daalein!');
-      return;
-    }
-    const newWs = {
-      id: Date.now(),
-      title: quizTitle,
-      className: selectedClass,
-      subject: selectedSubject,
-      questions: parsedQuestions
-    };
-    const updated = [newWs, ...worksheets];
-    saveWorksheetsToStorage(updated);
-    setRawText('');
-    setParsedQuestions([]);
-    setQuizTitle('');
-    alert('Quiz safaltapoorvak publish ho gaya!');
-  };
-
-  const deleteWorksheet = (id) => {
-    const updated = worksheets.filter(w => w.id !== id);
-    saveWorksheetsToStorage(updated);
-  };
-
-  const handleSubmitQuiz = () => {
-    let calcScore = 0;
-    activeQuiz.questions.forEach(q => {
-      if (userAnswers[q.id] === q.correctAnswer) {
-        calcScore += 1;
-      }
-    });
-    setScore(calcScore);
-    setQuizSubmitted(true);
-  };
-
-  const getSubjectsForClass = (cls) => {
-    if (cls >= 11) return ['Informatics Practices', 'Computer Science', 'Physics', 'Chemistry', 'Mathematics'];
-    if (cls >= 9) return ['Science', 'Mathematics', 'Social Science', 'English', 'Hindi'];
-    return ['EVS', 'Mathematics', 'English', 'Hindi'];
-  };
-
-  const currentFilteredWorksheets = worksheets.filter(ws =>
-    String(ws.className) === String(selectedClass) && ws.subject === selectedSubject
+  return (
+    <div style={{ maxWidth: 380, margin: "60px auto", padding: "0 16px" }}>
+      <div style={s.card}>
+        <h2>AIMS Login</h2>
+        <p style={s.muted}>Admin: admin@aims.com / 123 · Student: student@aims.com / 123</p>
+        <input style={s.input} placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input style={s.input} placeholder="Password" type="password" value={pass} onChange={(e) => setPass(e.target.value)} />
+        {err && <p style={{ color: "#f87171", fontSize: 13 }}>{err}</p>}
+        <button style={s.button} onClick={submit}>Log In</button>
+      </div>
+    </div>
   );
+}
 
-  // --- UI RENDER ---
-  if (!currentUser) {
-    return (
+// ---------------- Top bar ----------------
+function TopBar({ session, onLogout }) {
+  return (
+    <div style={s.topbar}>
+      <div><strong>AIMS</strong> <span style={s.muted}>· {session.name} ({session.role})</span></div>
+      <button style={s.secondary} onClick={onLogout}>Logout</button>
+    </div>
+  );
+}
+
+// ---------------- Class / Subject grids ----------------
+function ClassGrid({ onPick }) {
+  return (
+    <div>
+      <h2>Select Class</h2>
+      <div style={s.grid}>
+        {CLASSES.map((c) => (
+          <div key={c} style={s.tile} onClick={() => onPick(c)}>Class {c}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SubjectGrid({ cls, onBack, onPick }) {
+  return (
+    <div>
+      <button style={s.secondary} onClick={onBack}>← Back</button>
+      <h2>Class {cls} — Select Subject</h2>
+      <div style={s.grid}>
+        {subjectsFor(cls).map((sub) => (
+          <div key={sub} style={s.tile} onClick={() => onPick(sub)}>{sub}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Quiz: Create (Admin) ----------------
+function CreateQuizTab({ cls, subject }) {
+  const [raw, setRaw] = useState("");
+  const [title, setTitle] = useState("");
+  const [parsed, setParsed] = useState([]);
+  const [msg, setMsg] = useState("");
+
+  const doParse = () => {
+    const p = parseQuiz(raw);
+    setParsed(p);
+    setMsg(`${p.length} question(s) parsed. Answer key: ${p.map((q) => q.answer).join(", ")}`);
+  };
+
+  const publish = () => {
+    if (!parsed.length) { alert("Parse the text first."); return; }
+    if (!title.trim()) { alert("Enter a title."); return; }
+    const all = LS.get("aims_worksheets", []);
+    all.push({ id: Date.now(), cls, subject, title: title.trim(), questions: parsed });
+    LS.set("aims_worksheets", all);
+    alert("Worksheet published!");
+    setRaw(""); setTitle(""); setParsed([]); setMsg("");
+  };
+
+  return (
+    <div style={s.card}>
+      <h3>Paste Gemini Q&A Text</h3>
+      <textarea
+        style={{ ...s.input, minHeight: 180 }}
+        placeholder={"Q1. What is...\nA) ...\nB) ...\nC) ...\nD) ...\nAnswer: B"}
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+      />
+      <input style={s.input} placeholder="Worksheet Title / Topic" value={title} onChange={(e) => setTitle(e.target.value)} />
+      {msg && <p style={s.muted}>{msg}</p>}
+      <button style={s.secondary} onClick={doParse}>Preview / Parse</button>
+      <button style={{ ...s.button, marginLeft: 8 }} onClick={publish}>Publish Worksheet</button>
+    </div>
+  );
+}
+
+// ---------------- Quiz: Take (Student/Admin preview) ----------------
+function TakeQuiz({ quiz, session, onBack }) {
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  return (
+    <div>
+      <button style={s.secondary} onClick={onBack}>← All Quizzes</button>
+      <h3>{quiz.title}</h3>
+      {quiz.questions.map((q, i) => (
+        <div key={i} style={s.card}>
+          <p>{i + 1}. {q.text}</p>
+          {Object.entries(q.options).map(([k, v]) => {
+            const selected = answers[i] === k;
+            let st = selected ? "selected" : "default";
+            if (submitted) st = k === q.answer ? "correct" : selected ? "wrong" : "default";
+            return (
+              <button
+                key={k}
+                style={s.opt(st)}
+                onClick={() => { if (!submitted) setAnswers({ ...answers, [i]: k }); }}
+              >
+                {k}) {v}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+      {!submitted ? (
+        <button style={s.button} onClick={() => setSubmitted(true)}>Submit</button>
+      ) : (
+        <div style={s.card}>
+          <h3>Score Card</h3>
+          <p>
+            Correct: {quiz.questions.filter((q, i) => answers[i] === q.answer).length} / {quiz.questions.length}{" "}
+            ({Math.round((100 * quiz.questions.filter((q, i) => answers[i] === q.answer).length) / quiz.questions.length)}%)
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuizzesTab({ cls, subject, session }) {
+  const [active, setActive] = useState(null);
+  const all = LS.get("aims_worksheets", []).filter((w) => w.cls === cls && w.subject === subject);
+
+  if (active) return <TakeQuiz quiz={active} session={session} onBack={() => setActive(null)} />;
+
+  if (!all.length) return <div style={{ ...s.card, ...s.placeholder }}>No quizzes published yet for this class/subject.</div>;
+
+  return (
+    <div>
+      {all.map((w) => (
+        <div key={w.id} style={s.card}>
+          <h3>{w.title}</h3>
+          <p style={s.muted}>{w.questions.length} questions</p>
+          <button style={s.button} onClick={() => setActive(w)}>Take Quiz</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------- Attendance ----------------
+function AttendanceTab({ cls, subject, session }) {
+  const key = `${cls}|${subject}`;
+  const [store, setStore] = useState(LS.get("aims_attendance", {}));
+  const [name, setName] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+  const records = store[key] || [];
+
+  const mark = (status) => {
+    if (!name.trim()) { alert("Enter a student name."); return; }
+    const all = LS.get("aims_attendance", {});
+    const list = all[key] || [];
+    const idx = list.findIndex((r) => r.name === name.trim() && r.date === today);
+    if (idx >= 0) list[idx].status = status; else list.push({ name: name.trim(), date: today, status });
+    all[key] = list;
+    LS.set("aims_attendance", all);
+    setStore({ ...all });
+  };
+
+  const visible = session.role === "admin" ? records : records.filter((r) => r.name.toLowerCase() === String(session.name).toLowerCase());
+
+  return (
+    <div>
+      {session.role === "admin" && (
+        <div style={s.card}>
+          <h3>Mark Attendance — {today}</h3>
+          <input style={s.input} placeholder="Student name" value={name} onChange={(e) => setName(e.target.value)} />
+          <button style={s.button} onClick={() => mark("Present")}>Mark Present</button>
+          <button style={{ ...s.secondary, marginLeft: 8 }} onClick={() => mark("Absent")}>Mark Absent</button>
+        </div>
+      )}
+      <div style={s.card}>
+        <h3>Attendance Records</h3>
+        {!visible.length ? (
+          <p style={s.muted}>No records yet.</p>
+        ) : (
+          [...visible].reverse().map((r, i) => (
+            <p key={i}>{r.date} — {r.name} <span style={s.badge(r.status === "Present")}>{r.status}</span></p>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Fees ----------------
+function FeesTab({ cls, subject, session }) {
+  const key = `${cls}|${subject}`;
+  const [store, setStore] = useState(LS.get("aims_fees", {}));
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [status, setStatus] = useState("Paid");
+  const records = store[key] || [];
+
+  const add = () => {
+    if (!name.trim() || !amount) { alert("Enter name and amount."); return; }
+    const all = LS.get("aims_fees", {});
+    const list = all[key] || [];
+    list.push({ name: name.trim(), amount, status, date: new Date().toISOString().slice(0, 10) });
+    all[key] = list;
+    LS.set("aims_fees", all);
+    setStore({ ...all });
+    setName(""); setAmount("");
+  };
+
+  const visible = session.role === "admin" ? records : records.filter((r) => r.name.toLowerCase() === String(session.name).toLowerCase());
+
+  return (
+    <div>
+      {session.role === "admin" && (
+        <div style={s.card}>
+          <h3>Add Fee Record</h3>
+          <input style={s.input} placeholder="Student name" value={name} onChange={(e) => setName(e.target.value)} />
+          <input style={s.input} placeholder="Amount (₹)" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <select style={s.input} value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="Paid">Paid</option>
+            <option value="Due">Due</option>
+          </select>
+          <button style={s.button} onClick={add}>Add Record</button>
+        </div>
+      )}
+      <div style={s.card}>
+        <h3>Fee Records</h3>
+        {!visible.length ? (
+          <p style={s.muted}>No records yet.</p>
+        ) : (
+          [...visible].reverse().map((r, i) => (
+            <p key={i}>{r.date} — {r.name} — ₹{r.amount} <span style={s.badge(r.status === "Paid")}>{r.status}</span></p>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Subject Dashboard ----------------
+function SubjectDashboard({ cls, subject, session, onBack }) {
+  const [tab, setTab] = useState("quizzes");
+  const tabList = ["quizzes", ...(session.role === "admin" ? ["create"] : []), "attendance", "fees", "material", "live"];
+  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", attendance: "Attendance", fees: "Fees", material: "Study Material", live: "Live Classes" };
+
+  return (
+    <div>
+      <button style={s.secondary} onClick={onBack}>← Back</button>
+      <h2>Class {cls} · {subject}</h2>
+      <div style={s.tabs}>
+        {tabList.map((t) => (
+          <div key={t} style={s.tab(tab === t)} onClick={() => setTab(t)}>{labels[t]}</div>
+        ))}
+      </div>
+      {tab === "quizzes" && <QuizzesTab cls={cls} subject={subject} session={session} />}
+      {tab === "create" && <CreateQuizTab cls={cls} subject={subject} />}
+      {tab === "attendance" && <AttendanceTab cls={cls} subject={subject} session={session} />}
+      {tab === "fees" && <FeesTab cls={cls} subject={subject} session={session} />}
+      {(tab === "material" || tab === "live") && (
+        <div style={{ ...s.card, ...s.placeholder }}>{labels[tab]} module — coming soon in this panel.</div>
+      )}
+    </div>
+  );
+}
+
+// ---------------- Root App ----------------
+export default function App() {
+  const [session, setSession] = useState(() => LS.get("aims_session", null));
+  const [view, setView] = useState("classes");
+  const [cls, setCls] = useState(null);
+  const [subject, setSubject] = useState(null);
+
+  useEffect(() => { LS.set("aims_session", session); }, [session]);
+
+  const logout = () => { setSession(null); setView("classes"); setCls(null); setSubject(null); };
+
+  if (!session) return <div style={s.app}><LoginView onLogin={setSession} /></div>;
+
+  return (
+    <div style={s.app}>
+      <TopBar session={session} onLogout={logout} />
+      {view === "classes" && (
+        <ClassGrid onPick={(c) => { setCls(c); setView("subjects"); }} />
+      )}
+      {view === "subjects" && (
+        <SubjectGrid cls={cls} onBack={() => setView("classes")} onPick={(sub) => { setSubject(sub); setView("dashboard"); }} />
+      )}
+      {view === "dashboard" && (
+        <SubjectDashboard cls={cls} subject={subject} session={session} onBack={() => setView("subjects")} />
+      )}
+    </div>
+  );
+}
