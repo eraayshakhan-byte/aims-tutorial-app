@@ -687,4 +687,290 @@ function StudyMaterialTab({ cls, subject, session }) {
     setTitle(""); setDetail("");
   };
 
-  const removeMaterial
+  const removeMaterial = (id) => {
+    if (!window.confirm("Remove this study material?")) return;
+    const all = LS.get("aims_study_materials", {});
+    all[key] = (all[key] || []).filter((m) => m.id !== id);
+    LS.set("aims_study_materials", all);
+    setStore({ ...all });
+  };
+
+  const looksLikeUrl = (v) => /^https?:\/\//i.test(v.trim());
+
+  return (
+    <div>
+      {session.role === "admin" && (
+        <div style={s.card}>
+          <h3>Share Study Material</h3>
+          <div style={s.formRow}>
+            <div style={s.formCol}>
+              <input style={s.input} placeholder="Resource Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div style={s.formCol}>
+              <select style={s.input} value={type} onChange={(e) => setType(e.target.value)}>
+                {MATERIAL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <input
+            style={s.input}
+            placeholder={type === "Notes" ? "Notes / description" : "URL / Link"}
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+          />
+          <button style={s.button} onClick={addMaterial}>Publish Material</button>
+        </div>
+      )}
+
+      <h3>Study Material</h3>
+      {!items.length ? (
+        <p style={s.muted}>No study material published yet for this subject.</p>
+      ) : (
+        [...items].reverse().map((m) => (
+          <div key={m.id} style={s.resourceCard}>
+            <div style={s.row}>
+              <strong>{m.title}</strong>
+              <span style={s.badge(C.accent)}>{m.type}</span>
+            </div>
+            {looksLikeUrl(m.detail) ? (
+              <p style={{ margin: "6px 0 0" }}>
+                <a href={m.detail} target="_blank" rel="noopener noreferrer" style={s.link}>View / Download →</a>
+              </p>
+            ) : (
+              <p style={{ ...s.muted, margin: "6px 0 0" }}>{m.detail}</p>
+            )}
+            {session.role === "admin" && (
+              <button style={{ ...s.secondary, marginTop: 10, borderColor: C.bad, color: "#f87171" }} onClick={() => removeMaterial(m.id)}>Remove</button>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ================= LIVE CLASSES (per Class + Subject) =================
+function LiveClassesTab({ cls, subject, session }) {
+  const key = keyFor(cls, subject);
+  const [store, setStore] = useState(LS.get("aims_live_classes", {}));
+  const [title, setTitle] = useState("");
+  const [platform, setPlatform] = useState(LIVE_PLATFORMS[0]);
+  const [link, setLink] = useState("");
+  const [when, setWhen] = useState("");
+
+  const items = store[key] || [];
+
+  const addClass = () => {
+    if (!title.trim() || !link.trim() || !when) { alert("Enter a title, link and date/time."); return; }
+    const all = LS.get("aims_live_classes", {});
+    const list = all[key] || [];
+    list.push({ id: Date.now(), title: title.trim(), platform, link: link.trim(), when });
+    all[key] = list;
+    LS.set("aims_live_classes", all);
+    setStore({ ...all });
+    setTitle(""); setLink(""); setWhen("");
+  };
+
+  const removeClass = (id) => {
+    if (!window.confirm("Remove this live class?")) return;
+    const all = LS.get("aims_live_classes", {});
+    all[key] = (all[key] || []).filter((c) => c.id !== id);
+    LS.set("aims_live_classes", all);
+    setStore({ ...all });
+  };
+
+  const sorted = [...items].sort((a, b) => (a.when < b.when ? -1 : 1));
+
+  return (
+    <div>
+      {session.role === "admin" && (
+        <div style={s.card}>
+          <h3>Post a Live Class</h3>
+          <div style={s.formRow}>
+            <div style={s.formCol}>
+              <input style={s.input} placeholder="Class Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div style={s.formCol}>
+              <select style={s.input} value={platform} onChange={(e) => setPlatform(e.target.value)}>
+                {LIVE_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={s.formRow}>
+            <div style={s.formCol}>
+              <input style={s.input} placeholder="Meeting / Video Link" value={link} onChange={(e) => setLink(e.target.value)} />
+            </div>
+            <div style={s.formCol}>
+              <input style={s.input} type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+            </div>
+          </div>
+          <button style={s.button} onClick={addClass}>Post Live Class</button>
+        </div>
+      )}
+
+      <h3>Live Classes</h3>
+      {!sorted.length ? (
+        <p style={s.muted}>No live classes scheduled yet for this subject.</p>
+      ) : (
+        sorted.map((c) => (
+          <div key={c.id} style={s.resourceCard}>
+            <div style={s.row}>
+              <strong>{c.title}</strong>
+              <span style={s.badge(C.accent)}>{c.platform}</span>
+            </div>
+            <p style={{ ...s.muted, margin: "6px 0" }}>{new Date(c.when).toLocaleString()}</p>
+            <a href={c.link} target="_blank" rel="noopener noreferrer" style={s.link}>Join Class →</a>
+            {session.role === "admin" && (
+              <div>
+                <button style={{ ...s.secondary, marginTop: 10, borderColor: C.bad, color: "#f87171" }} onClick={() => removeClass(c.id)}>Remove</button>
+              </div>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ================= Admin Main Dashboard =================
+function AdminDashboard({ onPickClass }) {
+  const [tab, setTab] = useState("students");
+  const tabs = [
+    { id: "students", label: "Student Management" },
+    { id: "attendance", label: "Attendance Management" },
+    { id: "fees", label: "Fee Management" },
+  ];
+  return (
+    <div>
+      <ClassSlider selected={null} onPick={onPickClass} />
+      <div style={{ marginTop: 8 }}>
+        <div style={s.scrollRow}>
+          {tabs.map((t) => (
+            <div key={t.id} style={s.chip(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</div>
+          ))}
+        </div>
+        {tab === "students" && <StudentManagementPanel />}
+        {tab === "attendance" && <AttendanceManagementPanel />}
+        {tab === "fees" && <FeeManagementPanel />}
+      </div>
+    </div>
+  );
+}
+
+// ================= Student Dashboard (subject grid + own attendance/fees) =================
+function StudentDashboard({ session, onPickSubject }) {
+  return (
+    <div>
+      <SubjectGrid cls={session.cls} showBack={false} onPick={onPickSubject} />
+      <AttendanceHistoryCard session={session} />
+      <FeeStatusCard session={session} />
+    </div>
+  );
+}
+
+// ---------------- Subject Dashboard (Class > Subject) ----------------
+function SubjectDashboard({ cls, subject, session, onBack }) {
+  const [tab, setTab] = useState("quizzes");
+  const tabList = ["quizzes", ...(session.role === "admin" ? ["create"] : []), "material", "live"];
+  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", material: "Study Material", live: "Live Classes" };
+
+  return (
+    <div>
+      <button style={s.secondary} onClick={onBack}>← Back</button>
+      <h2>Class {cls} · {subject}</h2>
+      <div style={s.scrollRow}>
+        {tabList.map((t) => (
+          <div key={t} style={s.chip(tab === t)} onClick={() => setTab(t)}>{labels[t]}</div>
+        ))}
+      </div>
+      {tab === "quizzes" && <QuizzesTab cls={cls} subject={subject} session={session} />}
+      {tab === "create" && <CreateQuizTab cls={cls} subject={subject} />}
+      {tab === "material" && <StudyMaterialTab cls={cls} subject={subject} session={session} />}
+      {tab === "live" && <LiveClassesTab cls={cls} subject={subject} session={session} />}
+    </div>
+  );
+}
+
+// ---------------- Root App ----------------
+export default function App() {
+  const storedSession = LS.get("aims_session", null);
+  const isStudentSession = storedSession && storedSession.role === "student";
+
+  const [session, setSession] = useState(storedSession);
+  // Students skip class selection entirely and land directly on their own class's dashboard
+  const [view, setView] = useState(isStudentSession ? "subjects" : "classes");
+  const [cls, setCls] = useState(isStudentSession ? storedSession.cls : null);
+  const [subject, setSubject] = useState(null);
+
+  useEffect(() => { LS.set("aims_session", session); }, [session]);
+
+  const handleLogin = (u) => {
+    setSession(u);
+    if (u.role === "student") {
+      setView("subjects");
+      setCls(u.cls);
+    } else {
+      setView("classes");
+      setCls(null);
+    }
+    setSubject(null);
+  };
+
+  const logout = () => {
+    setSession(null);
+    setView("classes");
+    setCls(null);
+    setSubject(null);
+  };
+
+  if (!session) {
+    return (
+      <div style={{ ...s.app, alignItems: "center", justifyContent: "center" }}>
+        <GlobalStyle />
+        <LoginView onLogin={handleLogin} />
+      </div>
+    );
+  }
+
+  const isAdmin = session.role === "admin";
+
+  return (
+    <div style={s.app}>
+      <GlobalStyle />
+      <div style={s.inner}>
+        <TopBar session={session} onLogout={logout} />
+
+        {/* Admin-only main dashboard: Class slider + Student/Attendance/Fee management. Students never reach this view. */}
+        {view === "classes" && isAdmin && (
+          <AdminDashboard onPickClass={(c) => { setCls(c); setView("subjects"); }} />
+        )}
+
+        {view === "subjects" && isAdmin && (
+          <SubjectGrid
+            cls={cls}
+            showBack={true}
+            onBack={() => setView("classes")}
+            onPick={(sub) => { setSubject(sub); setView("dashboard"); }}
+          />
+        )}
+
+        {/* Students are locked to their own class: subject grid + their own attendance/fee cards only */}
+        {view === "subjects" && !isAdmin && (
+          <StudentDashboard
+            session={session}
+            onPickSubject={(sub) => { setSubject(sub); setView("dashboard"); }}
+          />
+        )}
+
+        {view === "dashboard" && (
+          <SubjectDashboard
+            cls={cls}
+            subject={subject}
+            session={session}
+            onBack={() => setView("subjects")}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
