@@ -89,14 +89,16 @@ function subjectsFor(cls) {
   return ["Maths", "English", "Hindi", "EVS"];
 }
 
-// Authenticate against admin/demo accounts first, then registered students
+// Authenticate against admin/demo accounts first, then registered students.
+// Email compared case-insensitively (trimmed + lowercased); password only trimmed
+// (passwords are case-sensitive by design, just not sensitive to stray whitespace).
 function authenticate(email, pass) {
-  const e = email.trim();
+  const e = email.trim().toLowerCase();
   const p = pass.trim();
-  const mock = MOCK_USERS.find((u) => u.email === e && u.pass === p);
+  const mock = MOCK_USERS.find((u) => u.email.trim().toLowerCase() === e && u.pass.trim() === p);
   if (mock) return { email: mock.email, name: mock.name, role: mock.role, cls: mock.cls || null, rollId: null };
   const students = LS.get("aims_students", []);
-  const st = students.find((u) => u.email === e && u.password === p);
+  const st = students.find((u) => u.email.trim().toLowerCase() === e && u.password.trim() === p);
   if (st) return { email: st.email, name: st.name, role: "student", cls: st.cls, rollId: st.rollId };
   return null;
 }
@@ -405,12 +407,15 @@ function StudentManagementPanel() {
 
   const addStudent = () => {
     if (!name.trim() || !email.trim() || !password.trim()) { alert("Enter name, email and password."); return; }
+    const normalizedEmail = email.trim().toLowerCase();
     const list = LS.get("aims_students", []);
-    if (list.some((st) => st.email.toLowerCase() === email.trim().toLowerCase())) {
+    if (list.some((st) => st.email.trim().toLowerCase() === normalizedEmail)) {
       alert("A student with this email is already registered.");
       return;
     }
-    list.push({ id: Date.now(), name: name.trim(), email: email.trim(), password: password.trim(), cls, rollId: rollId.trim() || "-" });
+    // Uniform property names + normalized email so authenticate() can find this
+    // record reliably regardless of how the admin typed the email at login time.
+    list.push({ id: Date.now(), name: name.trim(), email: normalizedEmail, password: password.trim(), cls, rollId: rollId.trim() || "-" });
     LS.set("aims_students", list);
     setStudents(list);
     setName(""); setEmail(""); setPassword(""); setRollId("");
