@@ -20,13 +20,24 @@ const s = {
   input: { width: "100%", background: "#0b1222", border: `1px solid ${C.border}`, color: C.text, padding: 10, borderRadius: 8, marginBottom: 10, fontSize: 15, boxSizing: "border-box" },
   button: { background: C.accent, color: "#04121c", border: "none", padding: "10px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 14 },
   secondary: { background: "transparent", border: `1px solid ${C.border}`, color: C.text, padding: "10px 16px", borderRadius: 8, cursor: "pointer", fontSize: 14 },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(100px,1fr))", gap: 10, width: "100%" },
-  tile: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 8px", textAlign: "center", cursor: "pointer" },
-  tabs: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 },
   row: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between" },
   formRow: { display: "flex", flexWrap: "wrap", gap: 10 },
   formCol: { flex: "1 1 160px", minWidth: 130 },
-  tab: (active) => ({ padding: "8px 14px", borderRadius: 20, border: `1px solid ${active ? C.accent : C.border}`, background: active ? C.accent : "transparent", color: active ? "#04121c" : C.text, cursor: "pointer", fontSize: 13 }),
+  muted: { color: C.muted, fontSize: 13 },
+  placeholder: { padding: "30px 10px", textAlign: "center", color: C.muted },
+  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  studentRow: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${C.border}`, padding: "10px 0" },
+
+  // Horizontal sliding nav (class chips / admin management tabs)
+  scrollRow: { display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollSnapType: "x proximity", paddingBottom: 8, marginBottom: 8 },
+  chip: (active) => ({
+    flex: "0 0 auto", scrollSnapAlign: "start", padding: "10px 16px", borderRadius: 20, whiteSpace: "nowrap", cursor: "pointer", fontSize: 13,
+    border: `1px solid ${active ? C.accent : C.border}`, background: active ? C.accent : C.card, color: active ? "#04121c" : C.text, fontWeight: active ? 700 : 500,
+  }),
+
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(100px,1fr))", gap: 10, width: "100%" },
+  tile: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 8px", textAlign: "center", cursor: "pointer" },
+
   opt: (state) => ({
     display: "block", width: "100%", textAlign: "left", padding: 10, borderRadius: 8, marginBottom: 8, cursor: "pointer",
     background: state === "correct" ? "#062b20" : state === "wrong" ? "#3a0f0f" : state === "selected" ? "#0c2433" : "#0b1222",
@@ -34,10 +45,16 @@ const s = {
     color: C.text,
   }),
   badge: (color) => ({ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 12, marginLeft: 6, background: color, color: color === C.warn ? "#04121c" : "#fff" }),
-  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  muted: { color: C.muted, fontSize: 13 },
-  placeholder: { padding: "30px 10px", textAlign: "center", color: C.muted },
-  studentRow: { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${C.border}`, padding: "10px 0" },
+
+  toggleBtn: (active, activeColor) => ({
+    padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, marginLeft: 8,
+    border: `1px solid ${active ? activeColor : C.border}`, background: active ? activeColor : "transparent", color: active ? "#fff" : C.text,
+  }),
+
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
+  th: { textAlign: "left", padding: "8px 6px", borderBottom: `1px solid ${C.border}`, color: C.muted, fontWeight: 600, whiteSpace: "nowrap" },
+  td: { padding: "8px 6px", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" },
+  tableWrap: { width: "100%", overflowX: "auto" },
 };
 
 // ---------------- Helpers ----------------
@@ -46,7 +63,9 @@ const LS = {
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
-// Admin credential + one legacy demo student (kept for quick testing)
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+// Admin credential + one legacy demo student (kept for quick testing, not shown on the login screen)
 const MOCK_USERS = [
   { email: "admin@aims.com", pass: "123", role: "admin", name: "Admin" },
   { email: "student@aims.com", pass: "123", role: "student", name: "Student", cls: "10" },
@@ -58,8 +77,8 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 function subjectsFor(cls) {
   const n = parseInt(cls, 10);
   if (n >= 11) return ["Informatics Practices", "Computer Science", "Physics", "Chemistry", "Maths"];
-  if (n >= 9) return ["Science", "Maths", "Social Science", "English", "Hindi"];
-  return ["EVS", "Maths", "English", "Hindi"];
+  if (n >= 5) return ["Science", "Social Science", "Sanskrit", "Hindi Grammar", "English Grammar", "Computer", "Maths"];
+  return ["Maths", "English", "Hindi", "EVS"];
 }
 
 // Authenticate against admin/demo accounts first, then registered students
@@ -103,6 +122,8 @@ function GlobalStyle() {
     <style>{`
       html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100%; background: ${C.bg}; }
       * { box-sizing: border-box; }
+      ::-webkit-scrollbar { height: 6px; }
+      ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; }
       @media (max-width: 480px) {
         .aims-grid-tile { padding: 12px 6px !important; font-size: 13px; }
       }
@@ -124,7 +145,6 @@ function LoginView({ onLogin }) {
     <div style={{ width: "100%", maxWidth: 380, margin: "auto", padding: "0 16px" }}>
       <div style={s.card}>
         <h2>AIMS Login</h2>
-        <p style={s.muted}>Admin: admin@aims.com / 123 · Demo student: student@aims.com / 123</p>
         <input style={s.input} placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input style={s.input} placeholder="Password" type="password" value={pass} onChange={(e) => setPass(e.target.value)} />
         {err && <p style={{ color: "#f87171", fontSize: 13 }}>{err}</p>}
@@ -149,14 +169,14 @@ function TopBar({ session, onLogout }) {
   );
 }
 
-// ---------------- Class / Subject grids ----------------
-function ClassGrid({ onPick }) {
+// ---------------- Class selector: horizontal sliding chip menu ----------------
+function ClassSlider({ selected, onPick }) {
   return (
     <div>
       <h2>Select Class</h2>
-      <div style={s.grid}>
+      <div style={s.scrollRow}>
         {CLASSES.map((c) => (
-          <div key={c} style={s.tile} onClick={() => onPick(c)}>Class {c}</div>
+          <div key={c} style={s.chip(selected === c)} onClick={() => onPick(c)}>Class {c}</div>
         ))}
       </div>
     </div>
@@ -217,10 +237,35 @@ function CreateQuizTab({ cls, subject }) {
   );
 }
 
-// ---------------- Quiz: Take (Student/Admin preview) ----------------
+// ---------------- Quiz: Take (Student/Admin preview) — saves a result on student submit ----------------
 function TakeQuiz({ quiz, session, onBack }) {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
+
+  const submit = () => {
+    setSubmitted(true);
+    if (session.role === "student") {
+      const correct = quiz.questions.filter((q, i) => answers[i] === q.answer).length;
+      const total = quiz.questions.length;
+      const percentage = Math.round((100 * correct) / total);
+      const results = LS.get("aims_quiz_results", []);
+      results.push({
+        id: Date.now(),
+        studentEmail: session.email,
+        studentName: session.name,
+        rollId: session.rollId || "-",
+        cls: quiz.cls,
+        subject: quiz.subject,
+        quizId: quiz.id,
+        quizTitle: quiz.title,
+        score: correct,
+        total,
+        percentage,
+        submittedAt: new Date().toISOString(),
+      });
+      LS.set("aims_quiz_results", results);
+    }
+  };
 
   return (
     <div>
@@ -246,7 +291,7 @@ function TakeQuiz({ quiz, session, onBack }) {
         </div>
       ))}
       {!submitted ? (
-        <button style={s.button} onClick={() => setSubmitted(true)}>Submit</button>
+        <button style={s.button} onClick={submit}>Submit</button>
       ) : (
         <div style={s.card}>
           <h3>Score Card</h3>
@@ -260,23 +305,76 @@ function TakeQuiz({ quiz, session, onBack }) {
   );
 }
 
+// Admin-only: results / scorecard table for the current class + subject
+function ScorecardPanel({ cls, subject }) {
+  const results = LS.get("aims_quiz_results", [])
+    .filter((r) => r.cls === cls && r.subject === subject)
+    .sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1));
+
+  return (
+    <div style={s.card}>
+      <h3>Quiz Results — Class {cls} · {subject}</h3>
+      {!results.length ? (
+        <p style={s.muted}>No quiz attempts recorded yet.</p>
+      ) : (
+        <div style={s.tableWrap}>
+          <table style={s.table}>
+            <thead>
+              <tr>
+                <th style={s.th}>Student</th>
+                <th style={s.th}>Roll No</th>
+                <th style={s.th}>Quiz</th>
+                <th style={s.th}>Score</th>
+                <th style={s.th}>%</th>
+                <th style={s.th}>Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((r) => (
+                <tr key={r.id}>
+                  <td style={s.td}>{r.studentName}</td>
+                  <td style={s.td}>{r.rollId}</td>
+                  <td style={s.td}>{r.quizTitle}</td>
+                  <td style={s.td}>{r.score} / {r.total}</td>
+                  <td style={s.td}>{r.percentage}%</td>
+                  <td style={s.td}>{new Date(r.submittedAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function QuizzesTab({ cls, subject, session }) {
   const [active, setActive] = useState(null);
+  const [showResults, setShowResults] = useState(false);
   const all = LS.get("aims_worksheets", []).filter((w) => w.cls === cls && w.subject === subject);
 
   if (active) return <TakeQuiz quiz={active} session={session} onBack={() => setActive(null)} />;
 
-  if (!all.length) return <div style={{ ...s.card, ...s.placeholder }}>No quizzes published yet for this class/subject.</div>;
-
   return (
     <div>
-      {all.map((w) => (
-        <div key={w.id} style={s.card}>
-          <h3>{w.title}</h3>
-          <p style={s.muted}>{w.questions.length} questions</p>
-          <button style={s.button} onClick={() => setActive(w)}>Take Quiz</button>
-        </div>
-      ))}
+      {session.role === "admin" && (
+        <button style={{ ...s.secondary, marginBottom: 12 }} onClick={() => setShowResults(!showResults)}>
+          {showResults ? "Hide" : "View"} Results / Scorecard
+        </button>
+      )}
+      {showResults && <ScorecardPanel cls={cls} subject={subject} />}
+
+      {!all.length ? (
+        <div style={{ ...s.card, ...s.placeholder }}>No quizzes published yet for this class/subject.</div>
+      ) : (
+        all.map((w) => (
+          <div key={w.id} style={s.card}>
+            <h3>{w.title}</h3>
+            <p style={s.muted}>{w.questions.length} questions</p>
+            <button style={s.button} onClick={() => setActive(w)}>Take Quiz</button>
+          </div>
+        ))
+      )}
     </div>
   );
 }
@@ -348,66 +446,57 @@ function StudentManagementPanel() {
   );
 }
 
-// ================= ATTENDANCE MANAGEMENT (Admin, main dashboard) =================
+// ================= ATTENDANCE MANAGEMENT (Admin, main dashboard) — one-click, today's date =================
 function AttendanceManagementPanel() {
   const [selClass, setSelClass] = useState(CLASSES[0]);
-  const [selDate, setSelDate] = useState(new Date().toISOString().slice(0, 10));
   const [store, setStore] = useState(LS.get("aims_attendance", {}));
+  const today = todayStr();
 
   const students = LS.get("aims_students", []).filter((st) => st.cls === selClass);
-  const dayRecord = (store[selClass] && store[selClass][selDate]) || {};
+  const dayRecord = (store[selClass] && store[selClass][today]) || {};
 
   const mark = (email, status) => {
     const all = LS.get("aims_attendance", {});
     const clsData = all[selClass] || {};
-    const dateData = { ...(clsData[selDate] || {}), [email]: status };
-    all[selClass] = { ...clsData, [selDate]: dateData };
+    const dateData = { ...(clsData[today] || {}), [email]: status };
+    all[selClass] = { ...clsData, [today]: dateData };
     LS.set("aims_attendance", all);
-    setStore({ ...all });
+    setStore({ ...all }); // instant refresh so the change reflects immediately
   };
 
   return (
-    <div>
-      <div style={s.card}>
-        <h3>Mark Attendance</h3>
-        <div style={s.formRow}>
-          <div style={s.formCol}>
-            <label style={s.muted}>Class</label>
-            <select style={s.input} value={selClass} onChange={(e) => setSelClass(e.target.value)}>
-              {CLASSES.map((c) => <option key={c} value={c}>Class {c}</option>)}
-            </select>
-          </div>
-          <div style={s.formCol}>
-            <label style={s.muted}>Date</label>
-            <input style={s.input} type="date" value={selDate} onChange={(e) => setSelDate(e.target.value)} />
-          </div>
-        </div>
-
-        {!students.length ? (
-          <p style={s.muted}>No students registered in Class {selClass} yet.</p>
-        ) : (
-          students.map((st) => {
-            const status = dayRecord[st.email];
-            return (
-              <div key={st.id} style={s.studentRow}>
-                <div>
-                  <strong>{st.name}</strong> <span style={s.muted}>· Roll {st.rollId}</span>
-                  {status && <span style={s.badge(status === "Present" ? C.ok : C.bad)}>{status}</span>}
-                </div>
-                <div>
-                  <button style={{ ...s.secondary, borderColor: C.ok }} onClick={() => mark(st.email, "Present")}>Present</button>
-                  <button style={{ ...s.secondary, borderColor: C.bad, marginLeft: 8 }} onClick={() => mark(st.email, "Absent")}>Absent</button>
-                </div>
-              </div>
-            );
-          })
-        )}
+    <div style={s.card}>
+      <h3>Attendance Checklist — {today}</h3>
+      <p style={s.muted}>Class:</p>
+      <div style={s.scrollRow}>
+        {CLASSES.map((c) => (
+          <div key={c} style={s.chip(selClass === c)} onClick={() => setSelClass(c)}>Class {c}</div>
+        ))}
       </div>
+
+      {!students.length ? (
+        <p style={s.muted}>No students registered in Class {selClass} yet.</p>
+      ) : (
+        students.map((st) => {
+          const status = dayRecord[st.email];
+          return (
+            <div key={st.id} style={s.studentRow}>
+              <div>
+                <strong>{st.name}</strong> <span style={s.muted}>· Roll {st.rollId}</span>
+              </div>
+              <div>
+                <button style={s.toggleBtn(status === "Present", C.ok)} onClick={() => mark(st.email, "Present")}>Present</button>
+                <button style={s.toggleBtn(status === "Absent", C.bad)} onClick={() => mark(st.email, "Absent")}>Absent</button>
+              </div>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
 
-// Student-facing read-only attendance history for their own class
+// Student-facing read-only date-wise attendance list for their own class
 function AttendanceHistoryCard({ session }) {
   const store = LS.get("aims_attendance", {});
   const clsData = store[session.cls] || {};
@@ -430,15 +519,7 @@ function AttendanceHistoryCard({ session }) {
   );
 }
 
-// ================= FEE MANAGEMENT (Admin, main dashboard) =================
-function computeFeeStatus(total, paid) {
-  const t = parseFloat(total) || 0;
-  const p = parseFloat(paid) || 0;
-  if (p <= 0) return "Pending";
-  if (p >= t && t > 0) return "Paid";
-  return "Partial";
-}
-
+// ================= FEE MANAGEMENT (Admin, main dashboard) — month toggle + optional amount fields =================
 function FeeManagementPanel() {
   const [selClass, setSelClass] = useState(CLASSES[0]);
   const [selMonth, setSelMonth] = useState(MONTHS[new Date().getMonth()]);
@@ -446,11 +527,13 @@ function FeeManagementPanel() {
   const [drafts, setDrafts] = useState({});
 
   const students = LS.get("aims_students", []).filter((st) => st.cls === selClass);
-  const classData = store[selClass] || {};
+  const monthRecord = (store[selClass] && store[selClass][selMonth]) || {};
+
+  const getRecord = (email) => monthRecord[email] || { status: null, total: "", paid: "", due: "" };
 
   const getDraft = (email) => {
     if (drafts[email]) return drafts[email];
-    const existing = (classData[email] && classData[email][selMonth]) || { total: "", paid: "" };
+    const existing = getRecord(email);
     return { total: existing.total ?? "", paid: existing.paid ?? "" };
   };
 
@@ -458,73 +541,83 @@ function FeeManagementPanel() {
     setDrafts({ ...drafts, [email]: { ...getDraft(email), [field]: value } });
   };
 
-  const saveFee = (email) => {
-    const d = getDraft(email);
-    if (d.total === "" || d.paid === "") { alert("Enter total and paid amount."); return; }
-    const total = parseFloat(d.total) || 0;
-    const paid = parseFloat(d.paid) || 0;
-    const due = Math.max(total - paid, 0);
-    const status = computeFeeStatus(total, paid);
+  const writeRecord = (email, patch) => {
     const all = LS.get("aims_fees", {});
     const clsData = all[selClass] || {};
-    const studentData = { ...(clsData[email] || {}), [selMonth]: { total, paid, due, status } };
-    all[selClass] = { ...clsData, [email]: studentData };
+    const monthData = { ...(clsData[selMonth] || {}) };
+    monthData[email] = { ...(monthData[email] || {}), ...patch };
+    all[selClass] = { ...clsData, [selMonth]: monthData };
     LS.set("aims_fees", all);
     setStore({ ...all });
   };
 
-  return (
-    <div>
-      <div style={s.card}>
-        <h3>Update Month-wise Fees</h3>
-        <div style={s.formRow}>
-          <div style={s.formCol}>
-            <label style={s.muted}>Class</label>
-            <select style={s.input} value={selClass} onChange={(e) => setSelClass(e.target.value)}>
-              {CLASSES.map((c) => <option key={c} value={c}>Class {c}</option>)}
-            </select>
-          </div>
-          <div style={s.formCol}>
-            <label style={s.muted}>Month</label>
-            <select style={s.input} value={selMonth} onChange={(e) => setSelMonth(e.target.value)}>
-              {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-        </div>
+  const markStatus = (email, status) => writeRecord(email, { status });
 
-        {!students.length ? (
-          <p style={s.muted}>No students registered in Class {selClass} yet.</p>
-        ) : (
-          students.map((st) => {
-            const d = getDraft(st.email);
-            const saved = classData[st.email] && classData[st.email][selMonth];
-            return (
-              <div key={st.id} style={{ ...s.card, background: "#152238" }}>
-                <div style={s.row}>
-                  <strong>{st.name}</strong>
-                  {saved && (
-                    <span>
-                      <span style={s.badge(saved.status === "Paid" ? C.ok : saved.status === "Partial" ? C.warn : C.bad)}>{saved.status}</span>
-                    </span>
-                  )}
-                </div>
-                <div style={s.formRow}>
-                  <div style={s.formCol}>
-                    <input style={s.input} type="number" placeholder="Total Amount (₹)" value={d.total} onChange={(e) => setDraft(st.email, "total", e.target.value)} />
-                  </div>
-                  <div style={s.formCol}>
-                    <input style={s.input} type="number" placeholder="Paid Amount (₹)" value={d.paid} onChange={(e) => setDraft(st.email, "paid", e.target.value)} />
-                  </div>
-                  <div style={s.formCol}>
-                    <input style={s.input} disabled value={`Due: ₹${Math.max((parseFloat(d.total) || 0) - (parseFloat(d.paid) || 0), 0)}`} />
-                  </div>
-                </div>
-                <button style={s.button} onClick={() => saveFee(st.email)}>Save {selMonth} Fee</button>
-              </div>
-            );
-          })
-        )}
+  const saveAmounts = (email) => {
+    const d = getDraft(email);
+    const total = d.total === "" ? undefined : parseFloat(d.total) || 0;
+    const paid = d.paid === "" ? undefined : parseFloat(d.paid) || 0;
+    const due = total !== undefined && paid !== undefined ? Math.max(total - paid, 0) : undefined;
+    const patch = {};
+    if (total !== undefined) patch.total = total;
+    if (paid !== undefined) patch.paid = paid;
+    if (due !== undefined) patch.due = due;
+    if (!Object.keys(patch).length) { alert("Enter total and/or paid amount."); return; }
+    writeRecord(email, patch);
+  };
+
+  return (
+    <div style={s.card}>
+      <h3>Fee Status — {selMonth}</h3>
+      <p style={s.muted}>Class:</p>
+      <div style={s.scrollRow}>
+        {CLASSES.map((c) => (
+          <div key={c} style={s.chip(selClass === c)} onClick={() => setSelClass(c)}>Class {c}</div>
+        ))}
       </div>
+      <p style={s.muted}>Month:</p>
+      <div style={s.scrollRow}>
+        {MONTHS.map((m) => (
+          <div key={m} style={s.chip(selMonth === m)} onClick={() => setSelMonth(m)}>{m}</div>
+        ))}
+      </div>
+
+      {!students.length ? (
+        <p style={s.muted}>No students registered in Class {selClass} yet.</p>
+      ) : (
+        students.map((st) => {
+          const rec = getRecord(st.email);
+          const d = getDraft(st.email);
+          return (
+            <div key={st.id} style={{ ...s.card, background: "#152238" }}>
+              <div style={s.row}>
+                <div>
+                  <strong>{st.name}</strong> <span style={s.muted}>· Roll {st.rollId}</span>
+                </div>
+                <div>
+                  <button style={s.toggleBtn(rec.status === "Paid", C.ok)} onClick={() => markStatus(st.email, "Paid")}>Paid</button>
+                  <button style={s.toggleBtn(rec.status === "Due", C.warn)} onClick={() => markStatus(st.email, "Due")}>Due</button>
+                </div>
+              </div>
+              {rec.total !== undefined && (
+                <p style={s.muted}>Total ₹{rec.total} · Paid ₹{rec.paid ?? 0} · Balance Due ₹{rec.due ?? 0}</p>
+              )}
+              <div style={s.formRow}>
+                <div style={s.formCol}>
+                  <input style={s.input} type="number" placeholder="Total Fee Amount (₹)" value={d.total} onChange={(e) => setDraft(st.email, "total", e.target.value)} />
+                </div>
+                <div style={s.formCol}>
+                  <input style={s.input} type="number" placeholder="Amount Paid (₹)" value={d.paid} onChange={(e) => setDraft(st.email, "paid", e.target.value)} />
+                </div>
+                <div style={s.formCol}>
+                  <input style={s.input} disabled value={`Balance Due: ₹${Math.max((parseFloat(d.total) || 0) - (parseFloat(d.paid) || 0), 0)}`} />
+                </div>
+              </div>
+              <button style={s.secondary} onClick={() => saveAmounts(st.email)}>Save Amounts</button>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
@@ -532,25 +625,27 @@ function FeeManagementPanel() {
 // Student-facing read-only month-wise fee status for their own account
 function FeeStatusCard({ session }) {
   const store = LS.get("aims_fees", {});
-  const classData = store[session.cls] || {};
-  const myRecords = classData[session.email] || {};
-  const months = MONTHS.filter((m) => myRecords[m]);
+  const clsData = store[session.cls] || {};
+  const rows = MONTHS
+    .filter((m) => clsData[m] && clsData[m][session.email])
+    .map((m) => ({ month: m, ...clsData[m][session.email] }));
 
   return (
     <div style={s.card}>
       <h3>My Fee Status</h3>
-      {!months.length ? (
+      {!rows.length ? (
         <p style={s.muted}>No fee records yet.</p>
       ) : (
-        months.map((m) => {
-          const r = myRecords[m];
-          return (
-            <p key={m}>
-              {m} — Total ₹{r.total}, Paid ₹{r.paid}, Due ₹{r.due}{" "}
-              <span style={s.badge(r.status === "Paid" ? C.ok : r.status === "Partial" ? C.warn : C.bad)}>{r.status}</span>
+        rows.map((r) => (
+          <div key={r.month} style={{ marginBottom: 8 }}>
+            <p style={{ margin: "4px 0" }}>
+              {r.month} {r.status && <span style={s.badge(r.status === "Paid" ? C.ok : C.warn)}>{r.status}</span>}
             </p>
-          );
-        })
+            {r.total !== undefined && (
+              <p style={{ ...s.muted, margin: "0 0 6px" }}>Total ₹{r.total} · Paid ₹{r.paid ?? 0} · Balance Due ₹{r.due ?? 0}</p>
+            )}
+          </div>
+        ))
       )}
     </div>
   );
@@ -566,11 +661,11 @@ function AdminDashboard({ onPickClass }) {
   ];
   return (
     <div>
-      <ClassGrid onPick={onPickClass} />
+      <ClassSlider selected={null} onPick={onPickClass} />
       <div style={{ marginTop: 8 }}>
-        <div style={s.tabs}>
+        <div style={s.scrollRow}>
           {tabs.map((t) => (
-            <div key={t.id} style={s.tab(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</div>
+            <div key={t.id} style={s.chip(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</div>
           ))}
         </div>
         {tab === "students" && <StudentManagementPanel />}
@@ -602,9 +697,9 @@ function SubjectDashboard({ cls, subject, session, onBack }) {
     <div>
       <button style={s.secondary} onClick={onBack}>← Back</button>
       <h2>Class {cls} · {subject}</h2>
-      <div style={s.tabs}>
+      <div style={s.scrollRow}>
         {tabList.map((t) => (
-          <div key={t} style={s.tab(tab === t)} onClick={() => setTab(t)}>{labels[t]}</div>
+          <div key={t} style={s.chip(tab === t)} onClick={() => setTab(t)}>{labels[t]}</div>
         ))}
       </div>
       {tab === "quizzes" && <QuizzesTab cls={cls} subject={subject} session={session} />}
@@ -665,7 +760,7 @@ export default function App() {
       <div style={s.inner}>
         <TopBar session={session} onLogout={logout} />
 
-        {/* Admin-only main dashboard: Class grid + Student/Attendance/Fee management. Students never reach this view. */}
+        {/* Admin-only main dashboard: Class slider + Student/Attendance/Fee management. Students never reach this view. */}
         {view === "classes" && isAdmin && (
           <AdminDashboard onPickClass={(c) => { setCls(c); setView("subjects"); }} />
         )}
