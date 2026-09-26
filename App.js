@@ -14,8 +14,10 @@ const C = {
 };
 
 const s = {
-  app: { width: "100%", minHeight: "100vh", margin: 0, padding: "16px", background: C.bg, color: C.text, fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif", boxSizing: "border-box", display: "flex", flexDirection: "column" },
-  inner: { width: "100%", maxWidth: 1100, margin: "0 auto", flex: 1 },
+  // No fixed/clipped heights here — minHeight only, and overflow left free so the
+  // page can grow and scroll naturally on mobile.
+  app: { width: "100%", minHeight: "100vh", margin: 0, padding: "16px", background: C.bg, color: C.text, fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif", boxSizing: "border-box", display: "flex", flexDirection: "column", overflowY: "visible", overflowX: "hidden" },
+  inner: { width: "100%", maxWidth: 1100, margin: "0 auto", flex: "1 0 auto" },
   card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 12, width: "100%", boxSizing: "border-box" },
   input: { width: "100%", background: "#0b1222", border: `1px solid ${C.border}`, color: C.text, padding: 10, borderRadius: 8, marginBottom: 10, fontSize: 15, boxSizing: "border-box" },
   button: { background: C.accent, color: "#04121c", border: "none", padding: "10px 16px", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 14 },
@@ -55,6 +57,9 @@ const s = {
   th: { textAlign: "left", padding: "8px 6px", borderBottom: `1px solid ${C.border}`, color: C.muted, fontWeight: 600, whiteSpace: "nowrap" },
   td: { padding: "8px 6px", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" },
   tableWrap: { width: "100%", overflowX: "auto" },
+
+  resourceCard: { background: "#152238", border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 10 },
+  link: { color: C.accent, textDecoration: "none", fontWeight: 600 },
 };
 
 // ---------------- Helpers ----------------
@@ -64,6 +69,7 @@ const LS = {
 };
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
+const keyFor = (cls, subject) => `${cls}|${subject}`;
 
 // Admin credential + one legacy demo student (kept for quick testing, not shown on the login screen)
 const MOCK_USERS = [
@@ -73,6 +79,8 @@ const MOCK_USERS = [
 
 const CLASSES = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MATERIAL_TYPES = ["PDF", "Link", "Notes"];
+const LIVE_PLATFORMS = ["Google Meet", "Zoom", "YouTube"];
 
 function subjectsFor(cls) {
   const n = parseInt(cls, 10);
@@ -120,7 +128,14 @@ function parseQuiz(raw) {
 function GlobalStyle() {
   return (
     <style>{`
-      html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100%; background: ${C.bg}; }
+      html, body, #root {
+        margin: 0; padding: 0; width: 100%;
+        min-height: 100%;
+        background: ${C.bg};
+        overflow-x: hidden;
+        overflow-y: auto; /* never clip vertical scrolling on mobile */
+        -webkit-overflow-scrolling: touch;
+      }
       * { box-sizing: border-box; }
       ::-webkit-scrollbar { height: 6px; }
       ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; }
@@ -651,146 +666,25 @@ function FeeStatusCard({ session }) {
   );
 }
 
-// ================= Admin Main Dashboard =================
-function AdminDashboard({ onPickClass }) {
-  const [tab, setTab] = useState("students");
-  const tabs = [
-    { id: "students", label: "Student Management" },
-    { id: "attendance", label: "Attendance Management" },
-    { id: "fees", label: "Fee Management" },
-  ];
-  return (
-    <div>
-      <ClassSlider selected={null} onPick={onPickClass} />
-      <div style={{ marginTop: 8 }}>
-        <div style={s.scrollRow}>
-          {tabs.map((t) => (
-            <div key={t.id} style={s.chip(tab === t.id)} onClick={() => setTab(t.id)}>{t.label}</div>
-          ))}
-        </div>
-        {tab === "students" && <StudentManagementPanel />}
-        {tab === "attendance" && <AttendanceManagementPanel />}
-        {tab === "fees" && <FeeManagementPanel />}
-      </div>
-    </div>
-  );
-}
+// ================= STUDY MATERIAL (per Class + Subject) =================
+function StudyMaterialTab({ cls, subject, session }) {
+  const key = keyFor(cls, subject);
+  const [store, setStore] = useState(LS.get("aims_study_materials", {}));
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState(MATERIAL_TYPES[0]);
+  const [detail, setDetail] = useState("");
 
-// ================= Student Dashboard (subject grid + own attendance/fees) =================
-function StudentDashboard({ session, onPickSubject }) {
-  return (
-    <div>
-      <SubjectGrid cls={session.cls} showBack={false} onPick={onPickSubject} />
-      <AttendanceHistoryCard session={session} />
-      <FeeStatusCard session={session} />
-    </div>
-  );
-}
+  const items = store[key] || [];
 
-// ---------------- Subject Dashboard (Class > Subject) ----------------
-function SubjectDashboard({ cls, subject, session, onBack }) {
-  const [tab, setTab] = useState("quizzes");
-  const tabList = ["quizzes", ...(session.role === "admin" ? ["create"] : []), "material", "live"];
-  const labels = { quizzes: "Quizzes", create: "Create Quiz (AI)", material: "Study Material", live: "Live Classes" };
-
-  return (
-    <div>
-      <button style={s.secondary} onClick={onBack}>← Back</button>
-      <h2>Class {cls} · {subject}</h2>
-      <div style={s.scrollRow}>
-        {tabList.map((t) => (
-          <div key={t} style={s.chip(tab === t)} onClick={() => setTab(t)}>{labels[t]}</div>
-        ))}
-      </div>
-      {tab === "quizzes" && <QuizzesTab cls={cls} subject={subject} session={session} />}
-      {tab === "create" && <CreateQuizTab cls={cls} subject={subject} />}
-      {(tab === "material" || tab === "live") && (
-        <div style={{ ...s.card, ...s.placeholder }}>{labels[tab]} module — coming soon in this panel.</div>
-      )}
-    </div>
-  );
-}
-
-// ---------------- Root App ----------------
-export default function App() {
-  const storedSession = LS.get("aims_session", null);
-  const isStudentSession = storedSession && storedSession.role === "student";
-
-  const [session, setSession] = useState(storedSession);
-  // Students skip class selection entirely and land directly on their own class's dashboard
-  const [view, setView] = useState(isStudentSession ? "subjects" : "classes");
-  const [cls, setCls] = useState(isStudentSession ? storedSession.cls : null);
-  const [subject, setSubject] = useState(null);
-
-  useEffect(() => { LS.set("aims_session", session); }, [session]);
-
-  const handleLogin = (u) => {
-    setSession(u);
-    if (u.role === "student") {
-      setView("subjects");
-      setCls(u.cls);
-    } else {
-      setView("classes");
-      setCls(null);
-    }
-    setSubject(null);
+  const addMaterial = () => {
+    if (!title.trim() || !detail.trim()) { alert("Enter a title and a URL / description."); return; }
+    const all = LS.get("aims_study_materials", {});
+    const list = all[key] || [];
+    list.push({ id: Date.now(), title: title.trim(), type, detail: detail.trim(), addedAt: new Date().toISOString() });
+    all[key] = list;
+    LS.set("aims_study_materials", all);
+    setStore({ ...all });
+    setTitle(""); setDetail("");
   };
 
-  const logout = () => {
-    setSession(null);
-    setView("classes");
-    setCls(null);
-    setSubject(null);
-  };
-
-  if (!session) {
-    return (
-      <div style={{ ...s.app, alignItems: "center", justifyContent: "center" }}>
-        <GlobalStyle />
-        <LoginView onLogin={handleLogin} />
-      </div>
-    );
-  }
-
-  const isAdmin = session.role === "admin";
-
-  return (
-    <div style={s.app}>
-      <GlobalStyle />
-      <div style={s.inner}>
-        <TopBar session={session} onLogout={logout} />
-
-        {/* Admin-only main dashboard: Class slider + Student/Attendance/Fee management. Students never reach this view. */}
-        {view === "classes" && isAdmin && (
-          <AdminDashboard onPickClass={(c) => { setCls(c); setView("subjects"); }} />
-        )}
-
-        {view === "subjects" && isAdmin && (
-          <SubjectGrid
-            cls={cls}
-            showBack={true}
-            onBack={() => setView("classes")}
-            onPick={(sub) => { setSubject(sub); setView("dashboard"); }}
-          />
-        )}
-
-        {/* Students are locked to their own class: subject grid + their own attendance/fee cards only */}
-        {view === "subjects" && !isAdmin && (
-          <StudentDashboard
-            session={session}
-            onPickSubject={(sub) => { setSubject(sub); setView("dashboard"); }}
-          />
-        )}
-
-        {view === "dashboard" && (
-          <SubjectDashboard
-            cls={cls}
-            subject={subject}
-            session={session}
-            onBack={() => setView("subjects")}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
+  const removeMaterial
